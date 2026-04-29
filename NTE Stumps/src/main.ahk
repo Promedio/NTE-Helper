@@ -23,12 +23,16 @@ A_MenuMaskKey := "" ; 防止遮盖控制键。
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
 
-#Include .\environment.ahk ; env.
+#Include .\environment.ahk ; 环境保障。
+env := Environment
+#Include .\update.ahk      ; 更新检查。
+upc := Update
 
 
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
 
+; 
 env.ensurance()
 
 
