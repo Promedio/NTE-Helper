@@ -13,9 +13,9 @@
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
 
-class env {
+class Environment {
 	; 确保自身能在要求的环境下运行。
-	; 当前要求有：管理员权限。
+	; 当前要求：管理员权限。
 	static ensurance(Self := env) {
 		Self.verify_uac()
 	} ; func ensurance
@@ -24,6 +24,7 @@ class env {
 
 	; 确保自身的管理员权限。
 	; 若自身未持有管理员权限，将尝试以管理员权限重新启动；若启动失败，将弹出错误提示。
+	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Auto%20Append%20Meow/Auto%20Append%20Meow%20for%20CalabiYau%20-%201.6.1.ahk#lines-56 。
 	static  verify_uac(Self := env) {
 		if A_IsAdmin == true {
 			return
@@ -46,6 +47,7 @@ class env {
 	; 尝试以管理员权限重新启动自身。
 	; 启动失败时将尝试普通启动。
 	; 有关提权启动，详见：https://wyagd001.github.io/v2/docs/lib/RunAs.htm 。
+	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Auto%20Append%20Meow/Auto%20Append%20Meow%20for%20CalabiYau%20-%201.6.1.ahk#lines-83 。
 	static restart_self_with_uac(Self := env) {
 		try {
 			Run '*RunAs "' A_ScriptFullPath '" /restart'
@@ -60,6 +62,7 @@ class env {
 
 	; 重新启动自身。
 	; 启动失败时将弹出错误提示。
+	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Auto%20Append%20Meow/Auto%20Append%20Meow%20for%20CalabiYau%20-%201.6.1.ahk#lines-76 。
 	static restart_self() {
 		try {
 			Run '"' A_ScriptFullPath '" /restart'
@@ -69,5 +72,5 @@ class env {
 			ExitApp()
 		}
 	} ; func restart_self
-} ; class env
+} ; class Environment
 
