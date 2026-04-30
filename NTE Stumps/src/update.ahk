@@ -89,6 +89,7 @@ class Update {
 
 
 	; 获取自身项目在本地的版本号。
+	; - 返回值：字符串形式的版本号，请求或解析失败时返回空字符串。
 	; 有关文件版本，详见：https://wyagd001.github.io/v2/docs/lib/FileGetVersion.htm 。
 	static get_local_version() {
 		finres := ""
