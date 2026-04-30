@@ -33,9 +33,11 @@ class Environment {
 		for arg in A_Args {
 			if (InStr("/restart", arg) != 0) {
 				user_choice := MsgBox("未能以管理员权限运行，要再次尝试吗？", A_ThisFunc, "OC Icon!")
-				if (user_choice == "Cancel")
+				if user_choice == "Cancel" {
 					ExitApp()
-				break
+				} else {
+					break
+				}
 			}
 		}
 
