@@ -7,7 +7,7 @@
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
 
-#Requires AutoHotkey v2.0.25+ ; 限制解释器版本。实际上不需要这么高的要求，但以防万一。
+#Requires AutoHotkey v2.0.25+ ; 限制解释器版本。（实际上不需要这么高的要求，但以防万一。）
 #SingleInstance Force         ; 强制覆盖单例。重复启动相当于重新加载。
 
 ProcessSetPriority("AboveNormal") ; 设优先级为“高于正常”。
@@ -15,7 +15,7 @@ ListLines(0)                      ; 关闭执行历史。
 KeyHistory(!A_IsCompiled)         ; 编译状态下关闭按键历史。
 Thread("Interrupt", 0)            ; 允许线程立即中断。
 
-#MaxThreads 4       ; 此值应当设置为热键的实际数目，此处翻倍是为了容许热键线程的意外轮替。
+#MaxThreads 9       ; 此值被设定为同时可容许热键（4）的二倍，并额外扩充了其它阻塞任务的数目（1）。
 SendMode("Input")   ; 设置发送模式为 Input。
 A_MenuMaskKey := "" ; 防止遮盖控制键。
 
@@ -23,10 +23,14 @@ A_MenuMaskKey := "" ; 防止遮盖控制键。
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
 
-#Include .\environment.ahk ; 环境保障。
-env := Environment
-#Include .\update.ahk      ; 更新检查。
-upc := Update
+;@Ahk2Exe-IgnoreBegin
+GLOBAL MAIN := TRUE           ; 引入控制。用于抑制分布页的自动执行。
+;@Ahk2Exe-IgnoreEnd
+
+#Include .\user_interface.ahk ; 用户交互。简化命名：dui。因受到引用而必须在前引入，有：env、cfg。
+#Include .\environment.ahk    ; 环境保障。简化命名：env。
+#Include .\config.ahk         ; 配置管理。简化命名：cfg。
+#Include .\update.ahk         ; 更新检查。简化命名：upc。
 
 
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----

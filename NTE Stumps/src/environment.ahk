@@ -7,12 +7,20 @@
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
 
-#Requires AutoHotkey v2.0.0+ ; 最低限制。
+#Requires AutoHotkey v2 ; 最低限制。
 
 
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
 
+; environment.ahk\Environment
+env := Environment
+
+
+; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
+
+
+; 用作模块或命名空间：env。
 class Environment {
 	; 确保自身能在要求的环境下运行。
 	; 当前要求：管理员权限。
@@ -32,12 +40,8 @@ class Environment {
 
 		for arg in A_Args {
 			if (InStr("/restart", arg) != 0) {
-				user_choice := MsgBox("未能以管理员权限运行，要再次尝试吗？", A_ThisFunc, "OC Icon!")
-				if user_choice == "Cancel" {
-					ExitApp()
-				} else {
-					break
-				}
+				dui.warning_dialog("未能以管理员权限运行，要再次尝试吗？", A_ThisFunc)
+				break
 			}
 		}
 
@@ -69,7 +73,7 @@ class Environment {
 		try {
 			Run '"' A_ScriptFullPath '" /restart'
 		} catch {
-			MsgBox("未能重新启动。", A_ThisFunc, "OK IconX")
+			dui.error_dialog("未能重新启动。", A_ThisFunc)
 		} finally {
 			ExitApp()
 		}

@@ -7,12 +7,20 @@
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
 
-#Requires AutoHotkey v2.0.0+ ; 最低限制。
+#Requires AutoHotkey v2 ; 最低限制。
 
 
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
 
+; update.ahk\Update
+global upc := Update
+
+
+; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
+
+
+; 用作模块或命名空间：upc。（c 意自 checker。）
 class Update {
 	; 执行一次请求，判别当前项目是否有云端更新。
 	; **注意：这是一个耗时函数。**
@@ -55,7 +63,6 @@ class Update {
 			finres := false
 			OutputDebug(A_ThisFunc . "：意外更新分支。`n")
 		}
-
 
 		FINRES:
 		return finres
