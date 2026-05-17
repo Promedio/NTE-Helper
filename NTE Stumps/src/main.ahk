@@ -25,6 +25,7 @@ A_MenuMaskKey := "" ; 防止遮盖控制键。
 
 ;@Ahk2Exe-IgnoreBegin
 GLOBAL MAIN := TRUE           ; 引入控制。用于抑制分布页的自动执行。
+GLOBAL TEST := TRUE           ; 测试控制。用于决定主页的执行分支。
 ;@Ahk2Exe-IgnoreEnd
 
 #Include .\user_interface.ahk ; 用户交互。简化命名：dui。因受到引用而必须在前引入，有：env、cfg。
@@ -36,8 +37,72 @@ GLOBAL MAIN := TRUE           ; 引入控制。用于抑制分布页的自动执
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
 
-; 
-env.ensurance()
+; 自动执行部分。
+; TEST 未定义或为 FALSE 时进入程序入口。
+try {
+	TEST := TEST
+	if TEST == FALSE {
+		entry()
+	}
+}
+catch {
+	entry()
+}
+
+; 测试执行部分。
+; TEST 为 TRUE 时执行。
+;@Ahk2Exe-IgnoreBegin
+if TEST == TRUE {
+	; 此处是测试调用。
+	standard_key_name()
+	duplicate_keys()
+}
+;@Ahk2Exe-IgnoreEnd
+
+
+; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
+
+
+; 程序入口。
+entry() {
+	; 
+	env.ensurance()
+} ; func entry
+
+
+
+;@Ahk2Exe-IgnoreBegin
+; 测试是否能如期获得标准按键名。
+standard_key_name() {
+	assert(cfg.get_standard_key_name("lctrl"), "LControl")
+} ; func standard_key_name
+
+
+
+; 测试是否能如期检测到重复的按键变体。
+duplicate_keys() {
+	assert(cfg.check_key_duplicate("Space"), false)
+	Hotkey("Space", (*) => {}, "Off")
+	assert(cfg.check_key_duplicate("Space"), true)
+} ; func duplicate_keys
+
+
+
+; 断言`result_a`一定等于`result_b`，否则退出程序。
+; 不论结果如何，函数都会向调试器打印执行结果。
+; **注意：此函数可能会退出程序。**
+; - `result_a`：要对比的值之一；
+; - `result_b`：要对比的另一个值；
+; - `func_name`：当前函数名，留空时默认为`A_ThisFunc`。
+assert(result_a, result_b, func_name := A_ThisFunc) {
+	if result_a == result_b {
+		OutputDebug("succeed. (" func_name ")`n")
+	} else {
+		OutputDebug("failed. (" func_name ")`n")
+		ExitApp()
+	}
+} ; func assert
+;@Ahk2Exe-IgnoreEnd
 
 
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
