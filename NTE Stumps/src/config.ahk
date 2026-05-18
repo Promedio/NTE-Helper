@@ -64,8 +64,8 @@ class Config {
 				; 具体键名。
 				static id   := "按键列表"
 				; 具体值，二维数组，一维类型为字符串形式的单个按键。
-				; 默认值保持为空。
-				static data := [[]]
+				; 默认值保持为空（`[]`而非`[[]]`）。
+				static data := []
 			} ; class 按键列表
 		} ; class 按键重复
 
@@ -91,6 +91,7 @@ class Config {
 
 	; 
 	; 读设置解析若出错则警告，无配置再默认。
+	; 还未确认同步的顺序是读写读还是写读写。
 	static synchronize(file_name, file_path := A_ScriptDir) {
 
 	} ; func synchronize
@@ -104,27 +105,57 @@ class Config {
 
 
 
-	; 
-	static parse_the_按键重复_按键列表(data_of_key_list, Self := cfg) {
-		finres := ""
-
-		error_key_list := []
-		; 重复
-
-		; 
-		key_group := []
-		loop parse data_of_key_list, ";" {
-			; 
-			key_list_of_single_group := []
-			loop parse A_LoopField, "," {
-
+	; 解析按键列表。
+	; 从指定形式的字符串中解析出具有标准按键名的按键列表，解析失败（按键无效或重复）时会弹出一个警告提示框让用户选择是否要继续执行。
+	; **注意：此函数可能会退出程序。**
+	; - `key_list_text`：以`,`和`;`分割的按键列表字符串，以`;`分割成组，以`,`分割为成员（也可以是全角形式）；
+	; - 返回值：以标准按键名字符串为成员的二维数组，视情况也可能返回空数组，因此该返回值不一定总有成员。
+	static parse_key_list(key_list_text, Self := cfg) {
+		; 过滤给定文本，去除空格、转换全角逗号和分号。
+		key_list_text_of_filtered := ""
+		loop parse key_list_text {
+			switch A_LoopField {
+			case " ":
+				continue
+			case "，":
+				key_list_text_of_filtered .= ","
+			case "；":
+				key_list_text_of_filtered .= ";"
+			default:
+				key_list_text_of_filtered .= A_LoopField
 			}
 		}
 
-		; if empty
+		; 按键总组，默认为空（空成员也具位置，也就是说`[[]]`有 1 长度。
+		; 以 `;` 为分割解析字符串，每次循环为一个按键组，忽略空组。
+		key_group := []
+		loop parse key_list_text_of_filtered, ";" {
+			; 按键单组，默认为空。
+			; 以 `,` 为分割解析字符串，每次循环为一个按键，忽略空字符串。
+			key_list_of_single_group := []
+			loop parse A_LoopField, "," {
+				; 确保按键名是有效的单按键，否则弹出错误。
+				standard_key_name := Self.get_standard_key_name(A_LoopField)
+				if standard_key_name == false {
+					dui.error_dialog("按键无效")
+				}
+				; 确保按键名没有重复，否则弹出错误。
+				if Self.check_key_duplicate(standard_key_name) == true {
+					dui.error_dialog("按键重复")
+				}
+				; 创建一个无效的热键，以供后续逻辑检测重复。
+				Hotkey(standard_key_name, (*) => {}, "Off")
+				; 追加标准按键名。
+				key_list_of_single_group.Push(standard_key_name)
+			}
+			; 不追加空的按键组。
+			if key_list_of_single_group.Length > 0 {
+				key_group.Push(key_list_of_single_group)
+			}
+		}
 
-		return finres
-	} ; func parse_the_按键重复_按键列表
+		return key_group
+	} ; func parse_key_list
 
 
 
@@ -172,9 +203,9 @@ class Config {
 
 
 	; 
-	static stringify_the_按键重复_按键列表(data_of_key_list) {
+	static stringify_key_list(key_list) {
 
-	} ; func stringify_the_按键重复_按键列表
+	} ; func stringify_key_list
 
 
 
@@ -245,6 +276,7 @@ class Config {
 		static all(Self := cfg.tests) {
 			Self.standard_key_name()
 			Self.duplicate_keys()
+			Self.parse_key_list()
 		} ; func all
 
 
@@ -262,6 +294,41 @@ class Config {
 			Hotkey("Space", (*) => {}, "Off")
 			com.assert(Self.check_key_duplicate("Space"), true)
 		} ; func duplicate_keys
+
+
+
+		; 测试按键列表是否能如期解析。
+		static parse_key_list(Self := cfg) {
+			;Self.parse_key_list("cc")  ; 按键无效。
+			;Self.parse_key_list("c,c") ; 按键重复。
+			array_res_a := Self.parse_key_list("1, 2, 3, 4; q, e, r; f; lctrl; xbutton1, rbutton")
+			array_res_b := [["1", "2", "3", "4"], ["q", "e", "r"], ["f"], ["LControl"], ["XButton1", "RButton"]]
+			com.assert(td_array_to_string(array_res_a), td_array_to_string(array_res_b))
+
+			; 依照二维数组生成字符串，用于内容对比。
+			; 内层数组不能是空的，成员不能是空字符串。
+			; - `td_array`：目标二维数组；
+			; - 返回值：以空格拼合的字符串，若无内容则返回空字符串。
+			td_array_to_string(td_array) {
+				finres := ""
+
+				for one in td_array {
+					; 内层数组不能为空。
+					if one.Length == 0 {
+						com.assert(1,0)
+					}
+					for two in one {
+						; 成员不能是空字符串。
+						if two == "" {
+							com.assert(1,0)
+						}
+						finres .= two " "
+					}
+				}
+
+				return finres
+			}
+		}
 	} ; class tests
 	;@Ahk2Exe-IgnoreEnd
 } ; class Config

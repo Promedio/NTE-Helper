@@ -74,6 +74,7 @@ entry() {
 tests() {
 	cfg.tests.all()
 	upc.tests.all()
+	ExitApp()
 } ; func tests
 ;@Ahk2Exe-IgnoreEnd
 
