@@ -82,8 +82,8 @@ class UserInterface {
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
 
-; 仅限独立执行。
 ;@Ahk2Exe-IgnoreBegin
+; 独立执行的单元测试。
 try MAIN := MAIN
 catch
 {

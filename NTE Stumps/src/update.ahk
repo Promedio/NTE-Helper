@@ -122,7 +122,7 @@ class Update {
 			goto FINRES
 		}
 
-		finres := Self.parse_version_api_content(requested_content)
+		finres := Self.parse_version_from_api_content(requested_content)
 
 		FINRES:
 		return finres
@@ -134,7 +134,7 @@ class Update {
 	; - `requested_content`：要解析的内容；
 	; - 返回值：字符串形式的版本号，解析失败时返回空字符串。
 	; 语法参考：https://wyagd001.github.io/v2/docs/lib/LoopParse.htm#ExFileRead 。
-	static parse_version_api_content(requested_content) {
+	static parse_version_from_api_content(requested_content) {
 		finres := ""
 
 		; 按换行符拆分成行处理。
@@ -159,7 +159,7 @@ class Update {
 		}
 
 		return finres
-	} ; func parse_version_api_content
+	} ; func parse_version_from_api_content
 
 
 
@@ -184,5 +184,35 @@ class Update {
 
 		return finres
 	} ; func request_api_to_string
+
+
+
+	;@Ahk2Exe-IgnoreBegin
+	; 集成测试部分。
+	; 用作模块或命名空间。
+	class tests {
+		; 一并执行所有测试项。
+		static all(Self := upc.tests) {
+			Self.compare_version()
+			Self.parse_version()
+		} ; func all
+
+
+
+		; 测试版本号是否能如期对比。
+		static compare_version(Self := upc) {
+			com.assert(Self.compare_version("1.3.5", "1.3.6"), 1)
+			com.assert(Self.compare_version("1.3.7", "1.3.7"), 0)
+			com.assert(Self.compare_version("1.3.9", "1.3.8"), -1)
+		} ; func compare_version
+
+
+
+		; 测试版本号是否能如期解析。
+		static parse_version(Self := upc) {
+			com.assert(Self.parse_version_from_api_content("019dd8f1-f5a6-750a-848a-12a5e4f9d3c5 3.22.96 The annotation text."), "3.22.96")
+		} ; func parse_version
+	} ; class tests
+	;@Ahk2Exe-IgnoreEnd
 } ; class Update
 

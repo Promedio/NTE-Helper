@@ -234,5 +234,35 @@ class Config {
 		FINRES:
 		return finres
 	} ; func create_file_with_check
+
+
+
+	;@Ahk2Exe-IgnoreBegin
+	; 集成测试部分。
+	; 用作模块或命名空间。
+	class tests {
+		; 一并执行所有测试项。
+		static all(Self := cfg.tests) {
+			Self.standard_key_name()
+			Self.duplicate_keys()
+		} ; func all
+
+
+
+		; 测试是否能如期获得标准按键名。
+		static standard_key_name(Self := cfg) {
+			com.assert(Self.get_standard_key_name("lctrl"), "LControl")
+		} ; func standard_key_name
+
+
+
+		; 测试是否能如期检测到重复的按键变体。
+		static duplicate_keys(Self := cfg) {
+			com.assert(Self.check_key_duplicate("Space"), false)
+			Hotkey("Space", (*) => {}, "Off")
+			com.assert(Self.check_key_duplicate("Space"), true)
+		} ; func duplicate_keys
+	} ; class tests
+	;@Ahk2Exe-IgnoreEnd
 } ; class Config
 
