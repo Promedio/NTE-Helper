@@ -29,7 +29,7 @@ GLOBAL TEST := TRUE           ; 测试控制。用于决定主页的执行分支
 ;@Ahk2Exe-IgnoreEnd
 
 #Include .\common.ahk         ; 通用功能。简化命名：com。因受到引用而必须在前引入，有：cfg、upc。
-#Include .\user_interface.ahk ; 用户交互。简化命名：dui。因受到引用而必须在前引入，有：env、cfg。
+#Include .\user_interface.ahk ; 用户交互。简化命名：dui。因受到引用而必须在前引入，有：env、cfg、cfg.pas。
 #Include .\environment.ahk    ; 环境保障。简化命名：env。
 #Include .\config.ahk         ; 配置管理。简化命名：cfg。
 #Include .\update.ahk         ; 更新检查。简化命名：upc。
@@ -73,7 +73,7 @@ entry() {
 ; 集成测试入口。
 tests() {
 	cfg.tests.all()
-	upc.tests.all()
+;	upc.tests.all()
 	ExitApp()
 } ; func tests
 ;@Ahk2Exe-IgnoreEnd

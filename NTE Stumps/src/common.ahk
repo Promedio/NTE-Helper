@@ -13,7 +13,7 @@
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
 
-; config.ahk\Config。
+; common.ahk\Common。
 global com := Common
 
 

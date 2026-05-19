@@ -27,7 +27,7 @@ class Update {
 	; - `timeout`：请求全程的最大等待时间（单位为秒）；
 	; - `assumed_local_version`：假定本地版本号，若给定可覆盖本地版本号；
 	; - 返回值：有更新时返回`true`，其它情况返回`false`。
-	static has_update(timeout, assumed_local_version := "", Self := Update) {
+	static has_update(timeout, assumed_local_version := "", Self := upc) {
 		finres := false
 
 		local_version := Self.get_local_version()
@@ -114,7 +114,7 @@ class Update {
 	; **注意：这是一个耗时函数。**
 	; - `timeout`：请求全程的最大等待时间（单位为秒）；
 	; - 返回值：字符串形式的版本号，请求或解析失败时返回空字符串。
-	static get_cloud_version(timeout, Self := Update) {
+	static get_cloud_version(timeout, Self := upc) {
 		finres := ""
 
 		requested_content := Self.request_api_to_string("https://api.bitbucket.org/2.0/repositories/paclora_epo/nte-helper/src/dom/VERSION", timeout)
