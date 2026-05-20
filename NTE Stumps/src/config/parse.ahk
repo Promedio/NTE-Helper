@@ -44,6 +44,10 @@ class Parse {
 			; 以 `,` 为分割解析字符串，每次循环为一个按键，忽略空字符串。
 			key_list_of_single_group := []
 			loop parse A_LoopField, "," {
+				; 跳过空的解析结果。
+				if A_LoopField == "" {
+					continue
+				}
 				; 确保按键名是有效的单按键，否则弹出错误。
 				standard_key_name := Self.get_standard_key_name(A_LoopField)
 				if standard_key_name == false {
@@ -255,6 +259,9 @@ class Parse {
 			array_res_a := Self.parse_td_key_list("1, 2, 3, 4; q, e, r; f; lctrl; xbutton1, rbutton")
 			array_res_b := [["1", "2", "3", "4"], ["q", "e", "r"], ["f"], ["LControl"], ["XButton1", "RButton"]]
 			com.assert(td_array_to_string(array_res_a), td_array_to_string(array_res_b))
+			array_res_c := Self.parse_td_key_list("5, , 6") ; 这里是在测试空忽略。
+			array_res_d := [["5", "6"]]
+			com.assert(td_array_to_string(array_res_c), td_array_to_string(array_res_d))
 
 			; 依照二维数组生成字符串，用于内容对比。
 			; 内层数组不能是空的，成员不能是空字符串。

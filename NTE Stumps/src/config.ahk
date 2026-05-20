@@ -58,13 +58,15 @@ class Config {
 				static data := "f"
 			} ; class 触发按键
 
-			class 功能启用 {
+			; 指示当前功能是否可以生效。
+			; 在配置文件内作为段的键。
+			class 启用状态 {
 				; 具体键名。
-				static id   := "功能启用"
+				static id   := "启用状态"
 				; 具体值，布尔类型。
 				; 默认值为`true`。
 				static data := true
-			} ; class 功能启用
+			} ; class 启用状态
 		} ; class 交互重复
 
 		; 其它按键重复，根据分隔符分组触发，组间互斥覆盖。
@@ -83,13 +85,15 @@ class Config {
 				static data := []
 			} ; class 按键列表
 
-			class 功能启用 {
+			; 指示当前功能是否可以生效。
+			; 在配置文件内作为段的键。
+			class 启用状态 {
 				; 具体键名。
-				static id   := "功能启用"
+				static id   := "启用状态"
 				; 具体值，布尔类型。
 				; 默认值为`true`。
 				static data := true
-			} ; class 功能启用
+			} ; class 启用状态
 		} ; class 按键重复
 
 		; 其它配置项。
@@ -100,13 +104,13 @@ class Config {
 
 			; 脚本功能的总开关按键，豁免挂起。
 			; 在配置文件内作为段的键。
-			class 功能开关 {
+			class 全局按键 {
 				; 具体键名。
-				static id   := "功能开关"
+				static id   := "全局按键"
 				; 具体值，字符串形式的单个按键。
 				; 默认值为右Shift键。
 				static data := "RShift"
-			} ; class 功能开关
+			} ; class 全局按键
 		} ; class 杂项设置
 	} ; class data
 
@@ -130,6 +134,58 @@ class Config {
 	static write_config_to_file(file) {
 
 	} ; func write_config_to_file
+
+
+
+	; 序列化配置文件数据。
+	; 因顾及用户体验，此序列化完全手动控制，包含排版和注释信息。
+	; - `endl`：行结束符，按平台特性应当定义为 `r`n，但`FileOpen`的Flags有EOL选项支持，其设置为 `n 时可自动处理这些换行；
+	; - 返回值：包含完整配置文件内容的字符串。
+	; 有关行结束符选项，详见：https://wyagd001.github.io/v2/docs/lib/FileOpen.htm#EOL_options 、https://wyagd001.github.io/v2/docs/lib/FileOpen.htm#Remarks 。
+	static stringify_config_data(endl := "`n", Self := cfg) {
+		finres :=
+			"# NTE Stumps 配置文件" endl .
+			"# 有关可用按键，请见：https://wyagd001.github.io/v2/docs/KeyList.htm" endl .
+			endl .
+			endl .
+			"# －“交互重复”功能可重复特定按键，" endl .
+			"# 　　当您保持按下“映射按键”时，软件将持续发送“触发按键”。" endl .
+			"# ＊“映射按键”是您确实需要按下的按键名；" endl .
+			"# ＊“触发按键”是软件向游戏实际发送的按键名；" endl .
+			"# ＊“启用状态”指示当前功能是否应当生效，一般通过托盘菜控制，" endl .
+			"# 　　可填写“开”或“关”。" endl .
+			"[" Self.data.交互重复.id "]" endl .
+			Self.data.交互重复.映射按键.id "="                                Self.data.交互重复.映射按键.data  endl .
+			Self.data.交互重复.触发按键.id "="                                Self.data.交互重复.触发按键.data  endl .
+			Self.data.交互重复.启用状态.id "="      Self.pas.stringify_switch(Self.data.交互重复.启用状态.data) endl .
+			endl .
+			"# －“按键重复”功能可批量重复按键，区别是成组支持的按键之间不会冲突。" endl .
+			"# 　　当您按下任何在“按键列表”中列出的按键时，软件将持续发送那些按键。" endl .
+			"# ＊“按键列表”是您需要在按下某些按键时重复触发击键的按键名的列表，" endl .
+			"# 　　由分号（也就是“;”）分割成组，组内由逗号（也就是“,”）分隔按键名，" endl .
+			"# 　　组之间的按键独立执行触发，而组内部的只会重复最后一个按下的按键，" endl .
+			"# 　　也就是说，对于像“1, 2, 3, 4; q, e, r; LShift, RButton”这样的配置，" endl .
+			"# 　　当您同时按下“1”“2”“3”“4”的时候，" endl .
+			"# 　　软件第一开始会触发您第一个按下的按键，" endl .
+			"# 　　但紧接着只会重复您最后一个按下的按键（您按下按键的时机总分先后），" endl .
+			"# 　　这时，如果还有其它处于列表中的按键被按下（譬如“LShift”），" endl .
+			"# 　　那么软件就有了两个正在重复击键的按键，因为在这个假设的例子中，" endl .
+			"# 　　您按下的按键刚好在两个按键组中——如果您不需要这个功能，可以留空；" endl .
+			"# ＊“启用状态”指示当前功能是否应当生效，一般通过托盘菜控制，" endl .
+			"# 　　可填写“开”或“关”。" endl .
+			"[" Self.data.按键重复.id "]" endl .
+			Self.data.按键重复.按键列表.id "=" Self.pas.stringify_td_key_list(Self.data.按键重复.按键列表.data) endl .
+			Self.data.按键重复.启用状态.id "="      Self.pas.stringify_switch(Self.data.按键重复.启用状态.data) endl .
+			endl .
+			"# －“杂项设置”收纳了一些不太重要的配置项。" endl .
+			"# ＊“全局按键”是供您在游戏内快捷禁用或启用软件整体功能的按键名，" endl .
+			"# 　　如果您不需要这个功能，可以留空。" endl .
+			"[" Self.data.杂项设置.id "]" endl .
+			Self.data.杂项设置.全局按键.id "="                                Self.data.杂项设置.全局按键.data  endl .
+			endl
+
+		return finres
+	} ; func stringify_config_data
 
 
 
@@ -199,7 +255,15 @@ class Config {
 		; 一并执行所有测试项。
 		static all(Self := cfg.tests) {
 			cfg.pas.tests.all()
+		;	Self.stringify_config_data()
 		} ; func all
+
+
+
+		; 打印以预览配置文件的排版格式和观察序列化情况。
+		static stringify_config_data(Self := cfg) {
+			OutputDebug(Self.stringify_config_data())
+		} ; func stringify_config_data
 	} ; class tests
 	;@Ahk2Exe-IgnoreEnd
 } ; class Config

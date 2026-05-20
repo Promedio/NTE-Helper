@@ -28,7 +28,7 @@ GLOBAL MAIN := TRUE           ; 引入控制。用于抑制分布页的自动执
 GLOBAL TEST := TRUE           ; 测试控制。用于决定主页的执行分支。
 ;@Ahk2Exe-IgnoreEnd
 
-#Include .\common.ahk         ; 通用功能。简化命名：com。因受到引用而必须在前引入，有：cfg、upc。
+#Include .\common.ahk         ; 通用功能。简化命名：com。因受到引用而必须在前引入，有：cfg、cfg.pas、upc。
 #Include .\user_interface.ahk ; 用户交互。简化命名：dui。因受到引用而必须在前引入，有：env、cfg、cfg.pas。
 #Include .\environment.ahk    ; 环境保障。简化命名：env。
 #Include .\config.ahk         ; 配置管理。简化命名：cfg。
