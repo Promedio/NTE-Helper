@@ -117,22 +117,62 @@ class Config {
 
 
 	; 
-	static synchronize(file_name, file_path := A_ScriptDir) {
+	static initialize(file_full_name, file_path := A_ScriptDir) {
+
+	} ; func initialize
+
+
+
+	; 
+	static synchronize(file_full_name, file_path := A_ScriptDir) {
 
 	} ; func synchronize
 
 
 
 	; 
-	static read_config_from_file(file) {
+	; **注意：此函数可能会退出程序。**
+	; - `file_full_path`：配置文件的完整路径；
+	; - 返回值：读取成功时返回`true`，失败时返回`false`。
+	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Scroll%20Wheel%20Behavior/Scroll%20Wheel%20Behavior%20for%20CalabiYau%20-%201.1.3.ahk#lines-213 。
+	static read_config_from_file(file_full_path, Self := cfg) {
+		finres := false
 
+		; 判断存在性若不存在则不读取因为程序读写必然同时发生而考虑到必然发生则实际不应判断存在性故应当直接尝试等。
+
+		FINRES:
+		return finres
 	} ; func read_config_from_file
 
 
 
-	; 
-	static write_config_to_file(file) {
+	; 将当前配置写入配置文件。
+	; 打开并覆盖写入配置文件，目标不存在时创建新文件，打开或创建失败时会弹出一个警告提示框让用户选择是否要继续执行。
+	; **注意：此函数可能会退出程序。**
+	; - `file_full_path`：配置文件的完整路径；
+	; - 返回值：写入成功时返回`true`，失败时返回`false`。
+	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Scroll%20Wheel%20Behavior/Scroll%20Wheel%20Behavior%20for%20CalabiYau%20-%201.1.3.ahk#lines-308 。
+	static write_config_to_file(file_full_path, Self := cfg) {
+		finres := false
 
+		try {
+			file := Self.open_file_with_create_if_not_exist(file_full_path)
+		} catch Error as e {
+			dui.warning_dialog(
+				"未能打开或创建配置文件文件 “" file_full_path "”，因为 “" e.Message "”`n"
+				"`n"
+				"所以，程序将使用默认配置。"
+				, A_ThisFunc
+			)
+			goto FINRES
+		}
+
+		file.Write(Self.stringify_config_data())
+		file.Close()
+		finres := true
+
+		FINRES:
+		return finres
 	} ; func write_config_to_file
 
 
@@ -190,36 +230,25 @@ class Config {
 
 
 	; 打开指定文件并包含创建。
-	; 打开指定文件，目标不存在时创建新文件，打开或创建失败时会弹出一个警告提示框让用户选择是否要继续执行。
-	; **注意：此函数可能会退出程序。**
+	; 打开指定文件，目标不存在时创建新文件，打开或创建失败时原样返回`FileOpen`的错误。
 	; - `file_full_path`：要打开的文件的完整路径；
-	; - 返回值：成功打开时返回文件对象，失败时返回`false`。
+	; - `eol_opt`：行结束符选项，配置为 `n 时可自动以面向Windows平台的方式处理换行符；
+	; - 返回值：成功打开时返回文件对象，失败时返回`OSError`。
 	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Disable%20System%20Hotkey/Disable%20System%20Hotkey%20for%20CalabiYau%20-%201.1.0.ahk#lines-293 。
-	static open_file_with_create_if_not_exist(file_full_path) {
-		finres := false
-
+	static open_file_with_create_if_not_exist(file_full_path, eol_opt := "`n") {
 		try {
-			finres := FileOpen(file_full_path, "rw", "UTF-16")
-		} catch Error as e {
-			dui.warning_dialog(
-				"未能打开文件 “" file_full_path "”，因为 “" e.Message "”`n"
-				"`n"
-				"所以，程序将使用默认配置。"
-				, A_ThisFunc
-			)
+			return FileOpen(file_full_path, "rw " . eol_opt, "UTF-16")
+		} catch {
+			throw
 		}
-
-		FINRES:
-		return finres
 	} ; func open_file_with_create_if_not_exist
 
 
 
 	; 创建一个新文件。
-	; 以给定路径创建文件，目标存在时不创建，创建失败时会弹出一个警告提示框让用户选择是否要继续执行。
-	; **注意：此函数可能会退出程序。**
+	; 以给定路径创建文件，目标存在时不创建，创建失败时原样返回`FileOpen`的错误。
 	; - `file_full_path`：要创建的文件的完整路径；
-	; - 返回值：创建成功或无需创建时返回`true`，创建失败时返回`false`。
+	; - 返回值：创建成功或无需创建时返回`true`，创建失败时返回`OSError`。
 	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Disable%20System%20Hotkey/Disable%20System%20Hotkey%20for%20CalabiYau%20-%201.1.0.ahk#lines-273 。
 	static create_file_with_check(file_full_path) {
 		finres := false
@@ -233,13 +262,8 @@ class Config {
 		try {
 			FileOpen(file_full_path, "w", "UTF-16").Close()
 			finres := true
-		} catch Error as e {
-			dui.warning_dialog(
-				"未能创建文件 “" file_full_path "”，因为 “" e.Message "”`n"
-				"`n"
-				"所以，程序将使用默认配置。"
-				, A_ThisFunc
-			)
+		} catch {
+			throw
 		}
 
 		FINRES:
