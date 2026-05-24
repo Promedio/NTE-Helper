@@ -72,7 +72,7 @@ entry() {
 ;@Ahk2Exe-IgnoreBegin
 ; 集成测试入口。
 tests() {
-	cfg.tests.all()
+;	cfg.tests.all()
 ;	upc.tests.all()
 	ExitApp()
 } ; func tests

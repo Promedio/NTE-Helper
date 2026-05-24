@@ -30,7 +30,7 @@ class Config {
 
 
 	; 配置文件的数据，供程序内部读取。
-	; 此类完全静态，使用前应使用`synchronize`函数初始化。
+	; 此类完全静态，使用前应使用`initialize`函数初始化。
 	class data {
 		; 游戏内角色交互世界对象的按键重复，区分映射按键与触发按键。
 		; 在配置文件内作为段。
@@ -116,63 +116,145 @@ class Config {
 
 
 
-	; 
-	static initialize(file_full_name, file_path := A_ScriptDir) {
+	; 初始化配置数据并生成配置文件，应在使用`cfg.data`前调用一次，程序整个生命周期内无需再次调用。
+	; 打开并读取配置文件，解析出错时将弹出错误提示以中止程序，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行；
+	; 若未有警告，函数紧随写入一次，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行。
+	; **注意：此函数可能会退出程序。**
+	; - `file_full_name`：配置文件的完整文件名；
+	; - `file_dir`：配置文件所在目录的路径，默认为程序所在的目录（`A_ScriptDir`）。
+	static initialize(file_full_name, file_dir := A_ScriptDir, Self := cfg) {
+		config_file_full_path := file_dir "\" file_full_name
 
+		; 假定初次读取，覆盖配置数据，文件不存在时创建文件，打开或创建失败时进入catch，解析出错时弹出错误提示。
+		; 如果进入catch，不能尝试写入，直接结束函数。
+		; 此处如果用户选择继续执行，则程序可以继续执行，但由于未能打开配置文件，程序将直接使用默认定义。
+		try {
+			Self.read_config_from_file(config_file_full_path)
+		} catch Error as e {
+			dui.warning_dialog(
+				"未能打开或创建配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
+				"`n"
+				"所以，程序将使用默认配置。"
+				, A_ThisFunc
+			)
+			goto FIN
+		}
+
+		; 数据已经读取，覆盖写回配置文件，文件不存在时创建文件，打开或创建失败时进入catch。
+		; 此处如果用户选择继续执行，则程序可以继续执行，但配置文件未能保存。
+		try {
+			Self.write_config_to_file(config_file_full_path)
+		} catch Error as e {
+			dui.warning_dialog(
+				"未能打开或创建配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
+				"`n"
+				"所以，程序无法保存配置。"
+				, A_ThisFunc
+			)
+		}
+
+		FIN:
 	} ; func initialize
 
 
 
-	; 
-	static synchronize(file_full_name, file_path := A_ScriptDir) {
+	; 同步当前配置数据到配置文件，应在`cfg.data`被修改时调用一次，每次修改一个或多个配置数据后都应该调用。
+	; 打开并写入配置文件，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行；
+	; 若未有警告，函数紧随读取一次，解析出错时将弹出错误提示以中止程序，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行。
+	; **注意：此函数可能会退出程序。**
+	; - `file_full_name`：配置文件的完整文件名；
+	; - `file_dir`：配置文件所在目录的路径，默认为程序所在的目录（`A_ScriptDir`）。
+	static synchronize(file_full_name, file_dir := A_ScriptDir, Self := cfg) {
+		config_file_full_path := file_dir "\" file_full_name
 
+		; 假定数据变更后的情形，覆盖写入配置文件，文件不存在时创建文件，打开或创建失败时进入catch。
+		; 如果进入catch，不能尝试写入，直接结束函数。
+		; 此处如果用户选择继续执行，则程序可以继续执行，但配置文件未能保存。
+		try {
+			Self.write_config_to_file(config_file_full_path)
+		} catch Error as e {
+			dui.warning_dialog(
+				"未能打开或创建配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
+				"`n"
+				"所以，程序无法保存配置。"
+				, A_ThisFunc
+			)
+			goto FIN
+		}
+
+		; 假定配置已经写回文件，重新读取以同步文件变更，文件不存在时创建文件，打开或创建失败时进入catch，解析出错时弹出错误提示。
+		; 此处如果用户选择继续执行，则程序可以继续执行，但无法同步这些保存的配置（通常来说是没问题的，这里是提前进行了下一次启动的读取）。
+		try {
+			Self.read_config_from_file(config_file_full_path)
+		} catch Error as e {
+			dui.warning_dialog(
+				"未能打开或创建配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
+				"`n"
+				"所以，程序无法确保与配置文件保持同步。"
+				, A_ThisFunc
+			)
+		}
+
+		FIN:
 	} ; func synchronize
 
 
 
-	; 
+	; 从配置文件中读取数据。
+	; 打开并读取配置文件，目标不存在时不存在时创建新文件，打开失败时原样返回`FileOpen`的错误，解析失败时将弹出错误提示。
 	; **注意：此函数可能会退出程序。**
 	; - `file_full_path`：配置文件的完整路径；
-	; - 返回值：读取成功时返回`true`，失败时返回`false`。
-	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Scroll%20Wheel%20Behavior/Scroll%20Wheel%20Behavior%20for%20CalabiYau%20-%201.1.3.ahk#lines-213 。
+	; - 返回值：读取成功时返回`true`，读取失败时返回`OSError`。
+	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Scroll%20Wheel%20Behavior/Scroll%20Wheel%20Behavior%20for%20CalabiYau%20-%201.1.3.ahk#lines-213 、https://bitbucket.org/paclora_epo/3oostumps/src/fb6b63869c04e6e1ccdf038bf947447eee4e966c/%E6%BA%90%E7%A0%81/3ooStumps/.PARTIAL/DataValidation.ahk#lines-126 。
 	static read_config_from_file(file_full_path, Self := cfg) {
-		finres := false
+		try {
+			file := Self.open_file_with_create_if_not_exist(file_full_path)
 
-		; 判断存在性若不存在则不读取因为程序读写必然同时发生而考虑到必然发生则实际不应判断存在性故应当直接尝试等。
+			current_section  := Self.data.交互重复 ; 组 --- --- --- ---
 
-		FINRES:
-		return finres
+			current_key      := current_section.映射按键
+			current_key.data := Self.pas.parse_single_key( IniRead(file_full_path, current_section.id, current_key.id))
+			current_key      := current_section.触发按键
+			current_key.data := Self.pas.parse_single_key( IniRead(file_full_path, current_section.id, current_key.id))
+			current_key      := current_section.启用状态
+			current_key.data := Self.pas.parse_switch(     IniRead(file_full_path, current_section.id, current_key.id))
+
+			current_section  := Self.data.按键重复 ; 组 --- --- --- ---
+
+			current_key      := current_section.按键列表
+			current_key.data := Self.pas.parse_td_key_list(IniRead(file_full_path, current_section.id, current_key.id)) ; 默认支持空结果。
+			current_key := current_section.启用状态
+			current_key.data := Self.pas.parse_switch(     IniRead(file_full_path, current_section.id, current_key.id))
+
+			current_section  := Self.data.杂项设置 ; 组 --- --- --- ---
+
+			current_key      := current_section.全局按键
+			current_key.data := Self.pas.parse_single_key( IniRead(file_full_path, current_section.id, current_key.id), true) ; 支持空结果。
+		} catch {
+			throw ; 抛出而不报错是因为上层逻辑中可能存在不同的解释方式。
+		}
+
+		return true
 	} ; func read_config_from_file
 
 
 
 	; 将当前配置写入配置文件。
-	; 打开并覆盖写入配置文件，目标不存在时创建新文件，打开或创建失败时会弹出一个警告提示框让用户选择是否要继续执行。
-	; **注意：此函数可能会退出程序。**
+	; 打开并覆盖写入配置文件，目标不存在时创建新文件，打开或创建失败时原样返回`FileOpen`的错误。
 	; - `file_full_path`：配置文件的完整路径；
-	; - 返回值：写入成功时返回`true`，失败时返回`false`。
+	; - 返回值：写入成功时返回`true`，失败时返回`OSError`。
 	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Scroll%20Wheel%20Behavior/Scroll%20Wheel%20Behavior%20for%20CalabiYau%20-%201.1.3.ahk#lines-308 。
 	static write_config_to_file(file_full_path, Self := cfg) {
-		finres := false
-
 		try {
 			file := Self.open_file_with_create_if_not_exist(file_full_path)
-		} catch Error as e {
-			dui.warning_dialog(
-				"未能打开或创建配置文件文件 “" file_full_path "”，因为 “" e.Message "”`n"
-				"`n"
-				"所以，程序将使用默认配置。"
-				, A_ThisFunc
-			)
-			goto FINRES
+		} catch {
+			throw ; 抛出而不报错是因为上层逻辑中可能存在不同的解释方式。
 		}
 
 		file.Write(Self.stringify_config_data())
 		file.Close()
-		finres := true
 
-		FINRES:
-		return finres
+		return true
 	} ; func write_config_to_file
 
 
@@ -233,10 +315,11 @@ class Config {
 	; 打开指定文件，目标不存在时创建新文件，打开或创建失败时原样返回`FileOpen`的错误。
 	; - `file_full_path`：要打开的文件的完整路径；
 	; - `eol_opt`：行结束符选项，配置为 `n 时可自动以面向Windows平台的方式处理换行符；
-	; - 返回值：成功打开时返回文件对象，失败时返回`OSError`。
+	; - 返回值：成功打开时返回`File`对象，失败时返回`OSError`。
 	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Disable%20System%20Hotkey/Disable%20System%20Hotkey%20for%20CalabiYau%20-%201.1.0.ahk#lines-293 。
 	static open_file_with_create_if_not_exist(file_full_path, eol_opt := "`n") {
 		try {
+			; 使用 UTF-16 是因为 IniRead 和 IniWrite 只支持 UTF-16 件中的 Unicode，详见：https://wyagd001.github.io/v2/docs/lib/IniRead.htm#Remarks 。
 			return FileOpen(file_full_path, "rw " . eol_opt, "UTF-16")
 		} catch {
 			throw
@@ -260,6 +343,7 @@ class Config {
 		}
 
 		try {
+			; 使用 UTF-16 是因为 IniRead 和 IniWrite 只支持 UTF-16 件中的 Unicode，详见：https://wyagd001.github.io/v2/docs/lib/IniRead.htm#Remarks 。
 			FileOpen(file_full_path, "w", "UTF-16").Close()
 			finres := true
 		} catch {
@@ -280,6 +364,8 @@ class Config {
 		static all(Self := cfg.tests) {
 			cfg.pas.tests.all()
 		;	Self.stringify_config_data()
+			Self.read_config_from_file()
+			Self.write_config_to_file()
 		} ; func all
 
 
@@ -288,6 +374,54 @@ class Config {
 		static stringify_config_data(Self := cfg) {
 			OutputDebug(Self.stringify_config_data())
 		} ; func stringify_config_data
+
+
+
+		; 测试配置文件是否能如期读取。
+		static read_config_from_file(Self := cfg) {
+			; 文件路径相对于最终执行文件的位置（main.ahk）。
+			Self.read_config_from_file("..\smp\config_file_used_to_read_wa_default.ini")
+			com.assert(Self.data.交互重复.映射按键.data       , "f")
+			com.assert(Self.data.交互重复.触发按键.data       , "f")
+			com.assert(Self.data.交互重复.启用状态.data       , true)
+			com.assert(Self.data.按键重复.按键列表.data.Length, 0)
+			com.assert(Self.data.按键重复.启用状态.data       , true)
+			com.assert(Self.data.杂项设置.全局按键.data, "RShift")
+			Self.read_config_from_file("..\smp\config_file_used_to_read_wa_custom.ini")
+			com.assert(Self.data.交互重复.映射按键.data      , "f")
+			com.assert(Self.data.交互重复.触发按键.data      , "LControl")
+			com.assert(Self.data.交互重复.启用状态.data      , true)
+			com.assert(Self.data.按键重复.按键列表.data[1][1], "F1")
+			com.assert(Self.data.按键重复.按键列表.data[1][2], "F2")
+			com.assert(Self.data.按键重复.按键列表.data[1][3], "F3")
+			com.assert(Self.data.按键重复.按键列表.data[1][4], "F4")
+			com.assert(Self.data.按键重复.按键列表.data[2][1], "F5")
+			com.assert(Self.data.按键重复.按键列表.data[2][2], "F6")
+			com.assert(Self.data.按键重复.按键列表.data[2][3], "F7")
+			com.assert(Self.data.按键重复.按键列表.data[3][1], "RAlt")
+			com.assert(Self.data.按键重复.按键列表.data[3][2], "XButton2")
+			com.assert(Self.data.按键重复.启用状态.data      , true)
+			com.assert(Self.data.杂项设置.全局按键.data, "")
+		;	Self.read_config_from_file("..\smp\config_file_used_to_read_wa_incorrect_of_no_somekey.ini")  ; 空按键错误。
+		;	Self.read_config_from_file("..\smp\config_file_used_to_read_wa_incorrect_of_invalid_key.ini") ; 无效按键错误。
+		} ; func read_config_from_file
+
+
+
+		; 测试配置文件是否能如期写入，但测试结果需要人工对比。
+		static write_config_to_file(Self := cfg) {
+			target_file_path := "..\smp\config_file_used_to_write_wa_default.ini"
+			Self.data.交互重复.映射按键.data := "p"
+			Self.data.交互重复.触发按键.data := "m"
+			Self.data.交互重复.启用状态.data := false
+			Self.data.按键重复.按键列表.data := [["c", "k"], ["t", "y"]]
+			Self.data.按键重复.启用状态.data := false
+			Self.data.杂项设置.全局按键.data := "g"
+			if FileExist(target_file_path) {
+				FileDelete(target_file_path)
+			}
+			Self.write_config_to_file(target_file_path)
+		} ; func write_config_to_file
 	} ; class tests
 	;@Ahk2Exe-IgnoreEnd
 } ; class Config

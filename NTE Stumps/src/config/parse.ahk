@@ -15,6 +15,56 @@
 
 ; 用作模块或命名空间：pas（于上层定义）。
 class Parse {
+	; 解析单个按键。
+	; 解析失败时将弹出错误提示。
+	; **注意：此函数可能会退出程序。**
+	; - `key_name`：要解析的单个按键名；
+	; - `can_be_empty`：为`true`时可接受空值（可含空格）并使函数返回空值；
+	; - 返回值：`key_name`的标准按键名，若`key_name`为空字符串且`can_be_empty`为`true`时返回空字符串而不弹出错误提示。
+	static parse_single_key(key_name, can_be_empty := false, Self := cfg.pas) {
+		finres := false
+
+		; 过滤给定文本，去除空格。
+		key_name_of_filtered := ""
+		loop parse key_name {
+			if A_LoopField == " " {
+				continue
+			} else {
+				key_name_of_filtered .= A_LoopField
+			}
+		}
+
+		; 允许为空时可返回空，否则需要报错。
+		if key_name_of_filtered == "" {
+			if can_be_empty == true {
+				finres := ""
+				goto FINRES
+			} else {
+				dui.error_dialog(
+					"有不可留空的按键名。`n"
+					"`n"
+					"遗憾的是，程序无法纠正这个错误。"
+					, A_ThisFunc
+				)
+			}
+		}
+
+		finres := Self.get_standard_key_name(key_name_of_filtered)
+		if finres == false {
+			dui.error_dialog(
+				"“" key_name "” 作为按键名是无效的。`n"
+				"`n"
+				"遗憾的是，程序无法纠正这个错误。"
+				, A_ThisFunc
+			)
+		}
+
+		FINRES:
+		return finres
+	}
+
+
+
 	; 解析多组按键列表。
 	; 从指定形式的字符串中解析出具有标准按键名的按键列表，解析失败（按键无效或重复）时将弹出错误提示。
 	; **注意：此函数可能会退出程序。**
@@ -164,7 +214,17 @@ class Parse {
 	; - `switch_text`：要解析的功能开关指示文本；
 	; - 返回值：`switch_text`为`"开"`、`"真"`、`"on"`、`"true"`时返回`true`，为`"关"`、`"假"`、`"off"`、`"false"`时返回`false`。
 	static parse_switch(switch_text) {
-		switch switch_text {
+		; 过滤给定文本，去除空格。
+		switch_text_of_filtered := ""
+		loop parse switch_text {
+			if A_LoopField == " " {
+				continue
+			} else {
+				switch_text_of_filtered .= A_LoopField
+			}
+		}
+
+		switch switch_text_of_filtered {
 		case "开":
 			return true
 		case "真":
@@ -174,16 +234,16 @@ class Parse {
 		case "假":
 			return false
 		default:
-			if StrCompare(switch_text, "on", "Off") == 0 {
+			if StrCompare(switch_text_of_filtered, "on", "Off") == 0 {
 				return true
 			}
-			if StrCompare(switch_text, "true", "Off") == 0 {
+			if StrCompare(switch_text_of_filtered, "true", "Off") == 0 {
 				return true
 			}
-			if StrCompare(switch_text, "off", "Off") == 0 {
+			if StrCompare(switch_text_of_filtered, "off", "Off") == 0 {
 				return false
 			}
-			if StrCompare(switch_text, "false", "Off") == 0 {
+			if StrCompare(switch_text_of_filtered, "false", "Off") == 0 {
 				return false
 			}
 			dui.error_dialog(
@@ -227,6 +287,7 @@ class Parse {
 		static all(Self := cfg.pas.tests) {
 			Self.standard_key_name()
 			Self.duplicate_keys()
+			Self.parse_single_key()
 			Self.parse_td_key_list()
 			Self.stringify_td_key_list()
 		;	Self.parse_and_stringify_td_key_list() ; 由于`parse_td_key_list`会创建热键，所以不能同时执行两个解析测试。
@@ -249,6 +310,17 @@ class Parse {
 			Hotkey("Space", (*) => {}, "Off")
 			com.assert(Self.check_key_duplicate("Space"), true)
 		} ; func duplicate_keys
+
+
+
+		; 测试单个按键是否能如期解析。
+		static parse_single_key(Self := cfg.pas) {
+			com.assert(Self.parse_single_key("a"), "a")
+			com.assert(Self.parse_single_key(" s "), "s")
+			com.assert(Self.parse_single_key("ralt"), "RAlt")
+			com.assert(Self.parse_single_key("", true), "")
+			com.assert(Self.parse_single_key("    ", true), "")
+		} ; func parse_single_key
 
 
 
@@ -322,6 +394,8 @@ class Parse {
 			com.assert(Self.parse_switch("Off"), false)
 			com.assert(Self.parse_switch("false"), false)
 			com.assert(Self.parse_switch("False"), false)
+			com.assert(Self.parse_switch("  假 "), false)
+			com.assert(Self.parse_switch("  False"), false)
 		;	Self.parse_switch("sunma") ; 解析错误。
 		;	Self.parse_switch("monna") ; 解析错误。
 		} ; func parse_switch
