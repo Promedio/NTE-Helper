@@ -410,7 +410,7 @@ class Config {
 
 		; 测试配置文件是否能如期写入，但测试结果需要人工对比。
 		static write_config_to_file(Self := cfg) {
-			target_file_path := "..\smp\config_file_used_to_write_wa_default.ini"
+			target_file_path := "..\smp\config_file_used_to_write_wa_custom.ini"
 			Self.data.交互重复.映射按键.data := "p"
 			Self.data.交互重复.触发按键.data := "m"
 			Self.data.交互重复.启用状态.data := false

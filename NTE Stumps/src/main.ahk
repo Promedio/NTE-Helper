@@ -30,6 +30,7 @@ GLOBAL TEST := TRUE           ; 测试控制。用于决定主页的执行分支
 
 #Include .\common.ahk         ; 通用功能。简化命名：com。因受到引用而必须在前引入，有：cfg、cfg.pas、upc。
 #Include .\user_interface.ahk ; 用户交互。简化命名：dui。因受到引用而必须在前引入，有：env、cfg、cfg.pas。
+#Include .\tray.ahk           ; 托盘菜单。简化命名：tra。
 #Include .\environment.ahk    ; 环境保障。简化命名：env。
 #Include .\config.ahk         ; 配置管理。简化命名：cfg。
 #Include .\update.ahk         ; 更新检查。简化命名：upc。
@@ -74,7 +75,8 @@ entry() {
 tests() {
 ;	cfg.tests.all()
 ;	upc.tests.all()
-	ExitApp()
+	tra.tests.all()
+;	ExitApp()
 } ; func tests
 ;@Ahk2Exe-IgnoreEnd
 
@@ -93,9 +95,9 @@ tests() {
 ;@Ahk2Exe-SetLanguage       0x0804 ; Chinese_PRC.
 ;@Ahk2Exe-SetOrigFilename   NTE Stumps.exe
 
-;@Ahk2Exe-SetMainIcon  .\icon\i1.ico      ; Default icon.
-;;@Ahk2Exe-AddResource .\icon\ix.ico, 160 ; The .ahk file icon.
-;@Ahk2Exe-AddResource  .\icon\i2.ico, 206 ; "Suspend Hotkeys" status.
-;;@Ahk2Exe-AddResource .\icon\ix.ico, 207 ; "Pause Script" status.
-;;@Ahk2Exe-AddResource .\icon\ix.ico, 208 ; "Suspend Hotkeys" and "Pause Script".
+ ;@Ahk2Exe-SetMainIcon ..\ico\i1.ico      ; Default icon.
+;;@Ahk2Exe-AddResource ..\ico\ix.ico, 160 ; The .ahk file icon.
+ ;@Ahk2Exe-AddResource ..\ico\i2.ico, 206 ; "Suspend Hotkeys" status.
+;;@Ahk2Exe-AddResource ..\ico\ix.ico, 207 ; "Pause Script" status.
+;;@Ahk2Exe-AddResource ..\ico\ix.ico, 208 ; "Suspend Hotkeys" and "Pause Script".
 
