@@ -1,7 +1,7 @@
 ﻿; Copyright 2026 Paclora Corporation. Licensed under the Apache License, Version 2.0.
 
 ; 用户交互。
-; 包含一些用于提示及接受选择的交互功能。
+; 包含一些用于提示及接受选择和不甚直观的交互功能。
 
 
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
@@ -76,6 +76,63 @@ class UserInterface {
 		MsgBox(full_message, full_title, "IconX")
 		ExitApp()
 	} ; func error_dialog
+
+
+
+	; 一组能发出哔声的简单函数。
+	class beep {
+		; 发出 G6 音调的哔声（近似于大写锁定按键被触发时的声调）。
+		; **注意：此函数是同步的，阻塞时间同等于`duration`。**
+		; - `duration`：声音持续的时长，单位为毫秒。
+		; 详见：https://wyagd001.github.io/v2/docs/lib/SoundBeep.htm ，另见：https://learn.microsoft.com/zh-cn/windows/win32/api/utilapiset/nf-utilapiset-beep 。
+		static g6(duration := 165) {
+			SoundBeep(1568, duration)
+		} ; func g6
+
+
+
+		; 发出 G5 音调的哔声（近似于大写锁定按键被解除时的声调）。
+		; **注意：此函数是同步的，阻塞时间同等于`duration`。**
+		; - `duration`：声音持续的时长，单位为毫秒。
+		; 详见：https://wyagd001.github.io/v2/docs/lib/SoundBeep.htm ，另见：https://learn.microsoft.com/zh-cn/windows/win32/api/utilapiset/nf-utilapiset-beep 。
+		static g5(duration := 165) {
+			SoundBeep(784, duration)
+		} ; func g5
+	} ; class beep
+
+
+
+	; 使用默认方式打开网址。
+	; 函数通过平台调用`Shell32.dll`中的`ShellExecute`（此处自动附带W）函数打开指定链接，出现错误时将弹出提示告知用户并将目标链接复制到用户剪切板。
+	; 注意：无法预知用户浏览器本身的错误，如因文件缺失或损坏导致的“Couldn't load XPCOM.”等。
+	; - `url`：目标链接，不能省略`http://`或`https://`头；
+	; - 返回值：原生接口返回值，大于 32 时说明存在错误，否则为相关对应值。
+	; 有关具体接口，详见：https://learn.microsoft.com/zh-cn/windows/win32/api/shellapi/nf-shellapi-shellexecutew 、https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-showwindow#parameters ；
+	; 有关平台调用，详见：https://wyagd001.github.io/v2/docs/lib/DllCall.htm ，另见：https://learn.microsoft.com/en-us/windows/win32/winprog/windows-data-types 。
+	static open_url(url, Self := dui) {
+		res := DllCall("Shell32\ShellExecute",
+			"Ptr", 0,      ; [in, optional] HWND      NULL
+			"Str", "open", ; [in, optional] LPCWSTR
+			"Str", url,    ; [in]           LPCWSTR
+			"Ptr", 0,      ; [in, optional] LPCWSTR   NULL
+			"Ptr", 0,      ; [in, optional] LPCWSTR   NULL
+			"Int", 1,      ; [in]           INT       SW_NORMAL
+			"Int"          ;                HINSTANCE
+		)
+
+		if res <= 32 {
+			A_Clipboard := url
+			Self.info_dialog(
+				"未能打开链接（" res "）——`n"
+				url "`n"
+				"`n"
+				"已经将它放入您的剪切板了。",
+				A_ThisFunc
+			)
+		}
+
+		return res
+	} ; func open_url
 } ; class UserInterface
 
 

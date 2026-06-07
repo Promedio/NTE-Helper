@@ -47,21 +47,21 @@ class Tray {
 		; 此项应独立成组，且应当在其它切换控制项之上。
 		class 全局功能启用状态 {
 			; 子项的预期位置。
-			static id   := "2&"
+			static id   := "3&"
 			; 子项的名称文本。
 			static name := "启用整体功能"
 		} ; class 全局功能启用状态
 		; 切换类项，将切换相关热键的启用状态。
 		class 交互重复启用状态 {
 			; 子项的预期位置。
-			static id   := "3&"
+			static id   := "5&"
 			; 子项的名称文本。
 			static name := "启用交互按键重复功能"
 		} ; class 交互重复启用状态
 		; 切换类项，将切换相关热键的启用状态。
 		class 按键重复启用状态 {
 			; 子项的预期位置。
-			static id   := "4&"
+			static id   := "6&"
 			; 子项的名称文本。
 			static name := "启用其它按键重复功能"
 		} ; class 按键重复启用状态
@@ -69,7 +69,7 @@ class Tray {
 		; 此项不得位于最末，除非没有更需要靠后的项。
 		class 重启软件 {
 			; 子项的预期位置。
-			static id   := "5&"
+			static id   := "8&"
 			; 子项的名称文本。
 			static name := "重新启动软件"
 		} ; class 重启软件
@@ -77,7 +77,7 @@ class Tray {
 		; 此项必须位于最末。
 		class 退出软件 {
 			; 子项的预期位置。
-			static id   := "6&"
+			static id   := "9&"
 			; 子项的名称文本。
 			static name := "退出软件"
 		} ; class 退出软件
@@ -87,8 +87,9 @@ class Tray {
 
 	; 
 	static construct(Self := tra, menu := A_TrayMenu) {
-		Self.refresh_tray_icon(Self)
+		Self.refresh_tray_icon()
 		Self.construct_tray_menu(Self, menu)
+		Self.construct_tray_icon_tip()
 	} ; func construct
 
 
@@ -97,37 +98,64 @@ class Tray {
 	static construct_tray_menu(Self := tra, menu := A_TrayMenu) {
 		menu.Delete()
 
-		menu.Add(Self.item.关于软件.name,         (*) => Self.cal.关于软件())
-		menu.Add()
-		menu.Add(Self.item.全局功能启用状态.name, (*) => Self.cal.全局功能启用状态())
-		menu.Add()
-		menu.Add(Self.item.交互重复启用状态.name, (*) => Self.cal.交互重复启用状态())
-		menu.Add(Self.item.按键重复启用状态.name, (*) => Self.cal.按键重复启用状态())
-		menu.Add()
-		menu.Add(Self.item.重启软件.name,         (*) => Self.cal.重启软件())
-		menu.Add(Self.item.退出软件.name,         (*) => Self.cal.退出软件())
-	} ; func 
+		menu.Add(Self.item.关于软件.name        , (*) => Self.cal.关于软件()        ) ; 1&
+		menu.Add()                                                                    ; 2&
+		menu.Add(Self.item.全局功能启用状态.name, (*) => Self.cal.全局功能启用状态()) ; 3&
+		menu.Add()                                                                    ; 4&
+		menu.Add(Self.item.交互重复启用状态.name, (*) => Self.cal.交互重复启用状态()) ; 5&
+		menu.Add(Self.item.按键重复启用状态.name, (*) => Self.cal.按键重复启用状态()) ; 6&
+		menu.Add()                                                                    ; 7&
+		menu.Add(Self.item.重启软件.name        , (*) => Self.cal.重启软件()        ) ; 8&
+		menu.Add(Self.item.退出软件.name        , (*) => Self.cal.退出软件()        ) ; 9&
+
+		menu.ClickCount := 1
+		menu.Default := Self.item.全局功能启用状态.name
+
+		Self.refresh_tray_menu_status(Self, menu)
+	} ; func construct_tray_menu
 
 
 
 	; 
 	static refresh_tray_menu_status(Self := tra, menu := A_TrayMenu) {
-
+		if A_IsSuspended == false {
+			menu.Check(  Self.item.全局功能启用状态.id)
+		} else {
+			menu.Uncheck(Self.item.全局功能启用状态.id)
+		}
+		if cfg.data.交互重复.启用状态.data == true {
+			menu.Check(  Self.item.交互重复启用状态.name)
+		} else {
+			menu.Uncheck(Self.item.交互重复启用状态.name)
+		}
+		if cfg.data.按键重复.启用状态.data == true {
+			menu.Check(  Self.item.按键重复启用状态.name)
+		} else {
+			menu.Uncheck(Self.item.按键重复启用状态.name)
+		}
 	} ; func refresh_tray_menu_status
 
 
 
 	; 
+	static construct_tray_icon_tip() {
+		local_ver_res := upc.get_local_version()
+		A_IconTip := "NTE Stumps" . (local_ver_res != "" ? (" v" local_ver_res) : (" (开发中的版本)"))
+	} ; func construct_tray_icon_tip
+
+
+
+	; 
 	static the_program_has_update() {
-		; 这个还没想好，应该放在更新的静态类里，然后这边做刷新，包括悬浮提示、菜单项名，之后的关于构造直接引用更新类好了。
+		; 感觉这过程可以是一次性的，不用给更新模块做标记。
 	} ; func the_program_has_update
 
 
 
 	; 
-	static refresh_tray_icon(Self := tra) {
+	static refresh_tray_icon() {
 		;@Ahk2Exe-IgnoreBegin
-		TraySetIcon(A_IsSuspended ? "..\ico\i2.ico" : "..\ico\i1.ico")
+		TraySetIcon(A_IsSuspended ? "..\ico\i2.ico" : "..\ico\i1.ico",, true)
 		;@Ahk2Exe-IgnoreEnd
 	} ; func refresh_tray_icon
 
@@ -140,6 +168,7 @@ class Tray {
 		; 一并执行所有测试项。
 		static all(Self := tra.tests) {
 			Self.construct()
+		;	Self.construct_with_update()
 			Persistent()
 		} ; func all
 
@@ -149,6 +178,14 @@ class Tray {
 		static construct(Self := tra) {
 			Self.construct()
 		} ; func construct
+
+
+
+		; 
+		static construct_with_update(Self := tra) {
+			Self.construct()
+			Self.the_program_has_update()
+		} ; func construct_with_update
 	} ; class tests
 	;@Ahk2Exe-IgnoreEnd
 } ; class Tray

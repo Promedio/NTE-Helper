@@ -29,6 +29,11 @@ class Config {
 
 
 
+	; 预期配置文件的完整文件名，仅供类内读取。
+	static config_file_full_name := "NTE Stumps 配置文件.ini"
+
+
+
 	; 配置文件的数据，供程序内部读取。
 	; 此类完全静态，使用前应使用`initialize`函数初始化。
 	class data {
@@ -122,7 +127,7 @@ class Config {
 	; **注意：此函数可能会退出程序。**
 	; - `file_full_name`：配置文件的完整文件名；
 	; - `file_dir`：配置文件所在目录的路径，默认为程序所在的目录（`A_ScriptDir`）。
-	static initialize(file_full_name, file_dir := A_ScriptDir, Self := cfg) {
+	static initialize(file_full_name := cfg.config_file_full_name, file_dir := A_ScriptDir, Self := cfg) {
 		config_file_full_path := file_dir "\" file_full_name
 
 		; 假定初次读取，覆盖配置数据，文件不存在时创建文件，打开或创建失败时进入catch，解析出错时弹出错误提示。
@@ -164,7 +169,7 @@ class Config {
 	; **注意：此函数可能会退出程序。**
 	; - `file_full_name`：配置文件的完整文件名；
 	; - `file_dir`：配置文件所在目录的路径，默认为程序所在的目录（`A_ScriptDir`）。
-	static synchronize(file_full_name, file_dir := A_ScriptDir, Self := cfg) {
+	static synchronize(file_full_name := cfg.config_file_full_name, file_dir := A_ScriptDir, Self := cfg) {
 		config_file_full_path := file_dir "\" file_full_name
 
 		; 假定数据变更后的情形，覆盖写入配置文件，文件不存在时创建文件，打开或创建失败时进入catch。
@@ -301,6 +306,7 @@ class Config {
 			endl .
 			"# －“杂项设置”收纳了一些不太重要的配置项。" endl .
 			"# ＊“全局按键”是供您在游戏内快捷禁用或启用软件整体功能的按键名，" endl .
+			"# 　　与其它功能不同的是，您需要连续按下两次才能触发它，" endl .
 			"# 　　如果您不需要这个功能，可以留空。" endl .
 			"[" Self.data.杂项设置.id "]" endl .
 			Self.data.杂项设置.全局按键.id "="                                Self.data.杂项设置.全局按键.data  endl .
