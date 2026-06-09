@@ -145,10 +145,11 @@ class Tray {
 
 
 	; 向托盘通知程序有更新，使其产生一些改变。
-	; 目前，该函数会修改托盘菜单第一个子项的文本为`「有新版本」vX.X.X`。这一修改是单向的，无法撤销或复原。
+	; 目前，该函数会修改托盘菜单第一个子项的文本为`「有新版本」vX.X.X`，还会修改托盘提示的文本为`NTE Stumps (有新版本)`。这些修改是单向的，无法撤销或复原。
 	; - `new_version`：最新版本的版本号，将用于后续显示。
 	static the_program_has_update(new_version ,Self := tra, menu := A_TrayMenu) {
 		menu.Rename(Self.item.关于软件.id, "「有新版本」v" new_version)
+		A_IconTip := "NTE Stumps (有新版本)"
 	} ; func the_program_has_update
 
 

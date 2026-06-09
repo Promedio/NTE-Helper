@@ -26,7 +26,7 @@ class Update {
 	; **注意：这是一个耗时函数。**
 	; - `timeout`：请求全程的最大等待时间（单位为秒）；
 	; - `assumed_local_version`：假定本地版本号，若给定可覆盖本地版本号；
-	; - 返回值：有更新时返回`true`，其它情况返回`false`。
+	; - 返回值：有更新时返回字符串形式的云端版本号，其它情况返回`false`。
 	static has_update(timeout, assumed_local_version := "", Self := upc) {
 		finres := false
 
@@ -48,19 +48,16 @@ class Update {
 
 		switch Self.compare_version(local_version, cloud_version) {
 			case 1:
-			finres := true
+			finres := cloud_version
 			OutputDebug(A_ThisFunc . "：检查到新版本：" . cloud_version . "。`n")
 
 			case 0:
-			finres := false
 			OutputDebug(A_ThisFunc . "：没有更新版本。`n")
 
 			case -1:
-			finres := false
 			OutputDebug(A_ThisFunc . "：本地版本更新。`n")
 
 			default:
-			finres := false
 			OutputDebug(A_ThisFunc . "：意外更新分支。`n")
 		}
 

@@ -15,7 +15,7 @@ ListLines(0)                      ; 关闭执行历史。
 KeyHistory(!A_IsCompiled)         ; 编译状态下关闭按键历史。
 Thread("Interrupt", 0)            ; 允许线程立即中断。
 
-#MaxThreads 9       ; 此值被设定为同时可容许热键（4）的二倍，并额外扩充了其它阻塞任务的数目（1）。
+#MaxThreads 10      ; 此值被设定为同时可容许热键（4）的二倍，并额外扩充了其它阻塞任务的数目（2）。
 SendMode("Input")   ; 设置发送模式为 Input。
 A_MenuMaskKey := "" ; 防止遮盖控制键。
 
@@ -25,14 +25,14 @@ A_MenuMaskKey := "" ; 防止遮盖控制键。
 
 ;@Ahk2Exe-IgnoreBegin
 GLOBAL MAIN := TRUE           ; 引入控制。用于抑制分布页的自动执行。
-GLOBAL TEST := TRUE           ; 测试控制。用于决定主页的执行分支。
+GLOBAL TEST := FALSE          ; 测试控制。用于决定主页的执行分支。
 ;@Ahk2Exe-IgnoreEnd
 
 #Include .\common.ahk         ; 通用功能。简化命名：com。因受到引用而必须在前引入，有：cfg、cfg.pas、upc。
 #Include .\user_interface.ahk ; 用户交互。简化命名：dui。因受到引用而必须在前引入，有：env、cfg、cfg.pas、tra.cal。
-#Include .\update.ahk         ; 更新检查。简化命名：upc。因受到引用而必须在前引入，有：tra。
-#Include .\config.ahk         ; 配置管理。简化命名：cfg。因受到引用而必须在前引入，有：tra、tra.cal。
 #Include .\environment.ahk    ; 环境保障。简化命名：env。因受到引用而必须在前引入，有：tra.cal。
+#Include .\config.ahk         ; 配置管理。简化命名：cfg。因受到引用而必须在前引入，有：tra、tra.cal。
+#Include .\update.ahk         ; 更新检查。简化命名：upc。因受到引用而必须在前引入，有：tra。
 #Include .\tray.ahk           ; 托盘菜单。简化命名：tra。
 
 
@@ -65,7 +65,36 @@ if TEST == TRUE {
 
 ; 程序逻辑入口。
 entry() {
+	; 确保执行环境。
 	env.ensurance()
+
+	; 初始化配置。
+	cfg.initialize()
+
+	; 构造托盘。
+	tra.construct()
+
+	; 异步检查更新情况，有更新时通知托盘。
+;	SetTimer((*) => check_update(), -1)
+
+	; 预期创建热键的 WinTitle 列表。
+	title_list := [
+		;	"异环"                ; 稳固标题，无法在游戏内的悬浮窗口上使用（如登录提示）。
+		"ahk_exe HTGame.exe"  ; 固定程序，可能误判，能直接支持多个区服和客户端。
+		"ahk_class Notepad++" ; 仅限调试。
+	]
+	
+	; 
+	; 这里是宏的部分。
+
+	; 检查到新版本时更新托盘呈现。
+	; **注意：这是一个耗时函数。**
+	check_update() {
+		up_res := upc.has_update(86)
+		if up_res != false {
+			tra.the_program_has_update(up_res)
+		}
+	} ; func check_update
 } ; func entry
 
 
@@ -75,7 +104,7 @@ entry() {
 tests() {
 ;	cfg.tests.all()
 ;	upc.tests.all()
-	tra.tests.all() ; 不含自动测试。
+;	tra.tests.all() ; 不含自动测试。
 ;	ExitApp()
 } ; func tests
 ;@Ahk2Exe-IgnoreEnd

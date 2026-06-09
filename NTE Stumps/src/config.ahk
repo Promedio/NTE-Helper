@@ -130,22 +130,23 @@ class Config {
 	static initialize(file_full_name := cfg.config_file_full_name, file_dir := A_ScriptDir, Self := cfg) {
 		config_file_full_path := file_dir "\" file_full_name
 
-		; 假定初次读取，覆盖配置数据，文件不存在时创建文件，打开或创建失败时进入catch，解析出错时弹出错误提示。
-		; 如果进入catch，不能尝试写入，直接结束函数。
+		; 假定初次读取，文件不存在时放弃读取，打开失败时进入catch，解析出错时弹出错误提示。
 		; 此处如果用户选择继续执行，则程序可以继续执行，但由于未能打开配置文件，程序将直接使用默认定义。
-		try {
-			Self.read_config_from_file(config_file_full_path)
-		} catch Error as e {
-			dui.warning_dialog(
-				"未能打开或创建配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
-				"`n"
-				"所以，程序将使用默认配置。"
-				, A_ThisFunc
-			)
-			goto FIN
+		if FileExist(config_file_full_path) {
+			try {
+				Self.read_config_from_file(config_file_full_path)
+			} catch Error as e {
+				dui.warning_dialog(
+					"未能打开配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
+					"`n"
+					"所以，程序将使用默认配置。"
+					, A_ThisFunc
+				)
+				goto FIN
+			}
 		}
 
-		; 数据已经读取，覆盖写回配置文件，文件不存在时创建文件，打开或创建失败时进入catch。
+		; 数据已经读取或放弃读取，覆盖写回配置文件，文件不存在时创建文件，打开或创建失败时进入catch。
 		; 此处如果用户选择继续执行，则程序可以继续执行，但配置文件未能保存。
 		try {
 			Self.write_config_to_file(config_file_full_path)
@@ -187,13 +188,13 @@ class Config {
 			goto FIN
 		}
 
-		; 假定配置已经写回文件，重新读取以同步文件变更，文件不存在时创建文件，打开或创建失败时进入catch，解析出错时弹出错误提示。
+		; 假定配置已经写回文件，重新读取以同步文件变更，文件不存在时或打开失败时进入catch，解析出错时弹出错误提示。
 		; 此处如果用户选择继续执行，则程序可以继续执行，但无法同步这些保存的配置（通常来说是没问题的，这里是提前进行了下一次启动的读取）。
 		try {
 			Self.read_config_from_file(config_file_full_path)
 		} catch Error as e {
 			dui.warning_dialog(
-				"未能打开或创建配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
+				"未能打开配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
 				"`n"
 				"所以，程序无法确保与配置文件保持同步。"
 				, A_ThisFunc
@@ -206,15 +207,13 @@ class Config {
 
 
 	; 从配置文件中读取数据。
-	; 打开并读取配置文件，目标不存在时不存在时创建新文件，打开失败时原样返回`FileOpen`的错误，解析失败时将弹出错误提示。
+	; 打开并读取配置文件，目标不存在时不存在或打开失败时原样返回`IniRead`的错误，解析失败时将弹出错误提示。
 	; **注意：此函数可能会退出程序。**
 	; - `file_full_path`：配置文件的完整路径；
 	; - 返回值：读取成功时返回`true`，读取失败时返回`OSError`。
 	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Scroll%20Wheel%20Behavior/Scroll%20Wheel%20Behavior%20for%20CalabiYau%20-%201.1.3.ahk#lines-213 、https://bitbucket.org/paclora_epo/3oostumps/src/fb6b63869c04e6e1ccdf038bf947447eee4e966c/%E6%BA%90%E7%A0%81/3ooStumps/.PARTIAL/DataValidation.ahk#lines-126 。
 	static read_config_from_file(file_full_path, Self := cfg) {
 		try {
-			file := Self.open_file_with_create_if_not_exist(file_full_path)
-
 			current_section  := Self.data.交互重复 ; 组 --- --- --- ---
 
 			current_key      := current_section.映射按键
@@ -251,7 +250,7 @@ class Config {
 	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Scroll%20Wheel%20Behavior/Scroll%20Wheel%20Behavior%20for%20CalabiYau%20-%201.1.3.ahk#lines-308 。
 	static write_config_to_file(file_full_path, Self := cfg) {
 		try {
-			file := Self.open_file_with_create_if_not_exist(file_full_path)
+			file := Self.open_file(file_full_path, true)
 		} catch {
 			throw ; 抛出而不报错是因为上层逻辑中可能存在不同的解释方式。
 		}
@@ -317,20 +316,21 @@ class Config {
 
 
 
-	; 打开指定文件并包含创建。
-	; 打开指定文件，目标不存在时创建新文件，打开或创建失败时原样返回`FileOpen`的错误。
+	; 打开指定文件。
+	; 打开指定文件，也可指定当目标不存在时创建新文件，打开或创建失败时原样返回`FileOpen`的错误。
 	; - `file_full_path`：要打开的文件的完整路径；
+	; - `create_if_not_exist`：指示函数是否应在目标不存在时创建新文件，需要写入文件时必须为`true`；
 	; - `eol_opt`：行结束符选项，配置为 `n 时可自动以面向Windows平台的方式处理换行符；
 	; - 返回值：成功打开时返回`File`对象，失败时返回`OSError`。
 	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Disable%20System%20Hotkey/Disable%20System%20Hotkey%20for%20CalabiYau%20-%201.1.0.ahk#lines-293 。
-	static open_file_with_create_if_not_exist(file_full_path, eol_opt := "`n") {
+	static open_file(file_full_path, create_if_not_exist := false, eol_opt := "`n") {
 		try {
 			; 使用 UTF-16 是因为 IniRead 和 IniWrite 只支持 UTF-16 件中的 Unicode，详见：https://wyagd001.github.io/v2/docs/lib/IniRead.htm#Remarks 。
-			return FileOpen(file_full_path, "rw " . eol_opt, "UTF-16")
+			return FileOpen(file_full_path, (create_if_not_exist ? "rw " : "r ") . eol_opt, "UTF-16")
 		} catch {
 			throw
 		}
-	} ; func open_file_with_create_if_not_exist
+	} ; func open_file
 
 
 
