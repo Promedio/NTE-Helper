@@ -38,10 +38,6 @@ class Tray {
 			static id   := "1&"
 			; 子项的名称文本。可能变化，需要及时更新。
 			static name := "关于 NTE Stumps"
-			; 子项默认状态的预备文本。
-			static name_when_default    := "关于 NTE Stumps"
-			; 子项有更新时的预备文本。
-			static name_when_has_uptade := "「有新版本」"
 		} ; class 关于软件
 		; 切换类项，将挂起所有热键。
 		; 此项应独立成组，且应当在其它切换控制项之上。
@@ -85,7 +81,7 @@ class Tray {
 
 
 
-	; 
+	; 构造托盘的图标、提示、默认点击功能、菜单。
 	static construct(Self := tra, menu := A_TrayMenu) {
 		Self.refresh_tray_icon()
 		Self.construct_tray_menu(Self, menu)
@@ -94,7 +90,8 @@ class Tray {
 
 
 
-	; 
+	; 构造托盘菜单。
+	; 托盘图标的默认击键被设为单次，功能被设置为切换热键的挂起状态。
 	static construct_tray_menu(Self := tra, menu := A_TrayMenu) {
 		menu.Delete()
 
@@ -116,7 +113,8 @@ class Tray {
 
 
 
-	; 
+	; 刷新托盘菜单子项的勾选状态。
+	; 该函数的刷新结果始终反映实际情况。
 	static refresh_tray_menu_status(Self := tra, menu := A_TrayMenu) {
 		if A_IsSuspended == false {
 			menu.Check(  Self.item.全局功能启用状态.id)
@@ -137,7 +135,8 @@ class Tray {
 
 
 
-	; 
+	; 根据自身版本号构建托盘提示。
+	; 自身不具有版本号时（比如处于脚本执行状态）将显示`(开发中的版本)`。
 	static construct_tray_icon_tip() {
 		local_ver_res := upc.get_local_version()
 		A_IconTip := "NTE Stumps" . (local_ver_res != "" ? (" v" local_ver_res) : (" (开发中的版本)"))
@@ -145,17 +144,20 @@ class Tray {
 
 
 
-	; 
-	static the_program_has_update() {
-		; 感觉这过程可以是一次性的，不用给更新模块做标记。
+	; 向托盘通知程序有更新，使其产生一些改变。
+	; 目前，该函数会修改托盘菜单第一个子项的文本为`「有新版本」vX.X.X`。这一修改是单向的，无法撤销或复原。
+	; - `new_version`：最新版本的版本号，将用于后续显示。
+	static the_program_has_update(new_version ,Self := tra, menu := A_TrayMenu) {
+		menu.Rename(Self.item.关于软件.id, "「有新版本」v" new_version)
 	} ; func the_program_has_update
 
 
 
-	; 
+	; 根据程序的状态设置托盘图标。
+	; 目前支持：挂起（`A_IsSuspended`）。
 	static refresh_tray_icon() {
 		;@Ahk2Exe-IgnoreBegin
-		TraySetIcon(A_IsSuspended ? "..\ico\i2.ico" : "..\ico\i1.ico",, true)
+		TraySetIcon(A_IsSuspended ? "..\ico\i2.ico" : "..\ico\i1.ico", , true)
 		;@Ahk2Exe-IgnoreEnd
 	} ; func refresh_tray_icon
 
@@ -174,17 +176,17 @@ class Tray {
 
 
 
-		; 
+		; 构建托盘菜单供实际测试。
 		static construct(Self := tra) {
 			Self.construct()
 		} ; func construct
 
 
 
-		; 
+		; 构建托盘菜单供实际测试，同时附带一次更新通知。
 		static construct_with_update(Self := tra) {
 			Self.construct()
-			Self.the_program_has_update()
+			Self.the_program_has_update("1.2.0")
 		} ; func construct_with_update
 	} ; class tests
 	;@Ahk2Exe-IgnoreEnd

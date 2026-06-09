@@ -107,7 +107,7 @@ class UserInterface {
 	; 注意：无法预知用户浏览器本身的错误，如因文件缺失或损坏导致的“Couldn't load XPCOM.”等。
 	; - `url`：目标链接，不能省略`http://`或`https://`头；
 	; - 返回值：原生接口返回值，大于 32 时说明存在错误，否则为相关对应值。
-	; 有关具体接口，详见：https://learn.microsoft.com/zh-cn/windows/win32/api/shellapi/nf-shellapi-shellexecutew 、https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-showwindow#parameters ；
+	; 有关具体接口，详见：https://learn.microsoft.com/zh-cn/windows/win32/api/shellapi/nf-shellapi-shellexecutew ，另见：https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-showwindow#parameters ；
 	; 有关平台调用，详见：https://wyagd001.github.io/v2/docs/lib/DllCall.htm ，另见：https://learn.microsoft.com/en-us/windows/win32/winprog/windows-data-types 。
 	static open_url(url, Self := dui) {
 		res := DllCall("Shell32\ShellExecute",

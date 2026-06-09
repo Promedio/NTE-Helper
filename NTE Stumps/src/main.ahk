@@ -75,7 +75,7 @@ entry() {
 tests() {
 ;	cfg.tests.all()
 ;	upc.tests.all()
-	tra.tests.all()
+	tra.tests.all() ; 不含自动测试。
 ;	ExitApp()
 } ; func tests
 ;@Ahk2Exe-IgnoreEnd
