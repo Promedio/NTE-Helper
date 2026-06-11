@@ -1,4 +1,4 @@
-; Copyright 2026 Paclora Corporation. Licensed under the Apache License, Version 2.0.
+﻿; Copyright 2026 Paclora Corporation. Licensed under the Apache License, Version 2.0.
 
 ; 类型解析。
 ; 包含类型解析和序列化功能。

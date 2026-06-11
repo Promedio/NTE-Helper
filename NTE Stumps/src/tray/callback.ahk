@@ -1,4 +1,4 @@
-; Copyright 2026 Paclora Corporation. Licensed under the Apache License, Version 2.0.
+﻿; Copyright 2026 Paclora Corporation. Licensed under the Apache License, Version 2.0.
 
 ; 托盘回调。
 ; 包含托盘菜单选项的具体功能。
