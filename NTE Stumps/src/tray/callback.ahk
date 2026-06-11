@@ -34,21 +34,25 @@ class Callback {
 
 
 
-	; 修改特定值，然后向配置同步，最后刷新托盘菜单子项的勾选状态。
+	; 修改特定值，然后向配置同步，启用或禁用相关热键，最后刷新托盘菜单子项的勾选状态。
 	; 如果配置文件未能写入，用户的操作可能不生效，托盘菜单子项的勾选状态始终反映实际情况。
 	static 交互重复启用状态(base := tra) {
 		cfg.data.交互重复.启用状态.data := !cfg.data.交互重复.启用状态.data
 		cfg.synchronize()
+		hks.set_hotkeys_enable_state([cfg.data.交互重复.映射按键.data], cfg.data.交互重复.启用状态.data)
 		base.refresh_tray_menu_status()
 	} ; func 交互重复启用状态
 
 
 
-	; 修改特定值，然后向配置同步，最后刷新托盘菜单子项的勾选状态。
+	; 修改特定值，然后向配置同步，启用或禁用相关热键，最后刷新托盘菜单子项的勾选状态。
 	; 如果配置文件未能写入，用户的操作可能不生效，托盘菜单子项的勾选状态始终反映实际情况。
 	static 按键重复启用状态(base := tra) {
 		cfg.data.按键重复.启用状态.data := !cfg.data.按键重复.启用状态.data
 		cfg.synchronize()
+		for key_list in cfg.data.按键重复.按键列表.data {
+			hks.set_hotkeys_enable_state(key_list, cfg.data.按键重复.启用状态.data)
+		}
 		base.refresh_tray_menu_status()
 	} ; func 按键重复启用状态
 

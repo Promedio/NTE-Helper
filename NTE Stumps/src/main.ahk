@@ -29,12 +29,20 @@ GLOBAL TEST := FALSE          ; 测试控制。用于决定主页的执行分支
 ;@Ahk2Exe-IgnoreEnd
 
 #Include .\common.ahk         ; 通用功能。简化命名：com。因受到引用而必须在前引入，有：cfg、cfg.pas、upc。
-#Include .\user_interface.ahk ; 用户交互。简化命名：dui。因受到引用而必须在前引入，有：env、cfg、cfg.pas、tra.cal。
+#Include .\user_interface.ahk ; 用户交互。简化命名：dui。因受到引用而必须在前引入，有：env、cfg、cfg.pas、tra.cal、hks。
 #Include .\environment.ahk    ; 环境保障。简化命名：env。因受到引用而必须在前引入，有：tra.cal。
-#Include .\config.ahk         ; 配置管理。简化命名：cfg。因受到引用而必须在前引入，有：tra、tra.cal。
+#Include .\config.ahk         ; 配置管理。简化命名：cfg。因受到引用而必须在前引入，有：tra、tra.cal、hks。
 #Include .\update.ahk         ; 更新检查。简化命名：upc。因受到引用而必须在前引入，有：tra。
+#Include .\hotkeys.ahk        ; 宏组热键。简化命名：hks。因受到引用而必须在前引入，有：tra.cal。
 #Include .\tray.ahk           ; 托盘菜单。简化命名：tra。
 
+
+GLOBAL ACTIVE_TITLE_LIST := [ ; 预期的 WinTitle 列表。
+;	"异环"               ,    ; 稳固标题，无法在游戏内的悬浮窗口上使用（如登录提示）。
+	"ahk_exe HTGame.exe" ,    ; 固定程序，可能误判，能直接支持多个区服和客户端。
+	"ahk_class Notepad++",    ; 仅限调试。
+;	"ahk_exe Code.exe"   ,    ; 仅限调试。
+]
 
 ; ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----   ---- ---- ---- ----
 
@@ -75,22 +83,18 @@ entry() {
 	tra.construct()
 
 	; 异步检查更新情况，有更新时通知托盘。
-;	SetTimer((*) => check_update(), -1)
+;	SetTimer((*) => check_update(300), -1)
 
-	; 预期创建热键的 WinTitle 列表。
-	title_list := [
-		;	"异环"                ; 稳固标题，无法在游戏内的悬浮窗口上使用（如登录提示）。
-		"ahk_exe HTGame.exe"  ; 固定程序，可能误判，能直接支持多个区服和客户端。
-		"ahk_class Notepad++" ; 仅限调试。
-	]
-	
-	; 
-	; 这里是宏的部分。
+	; 创建热键。
+	hks.create()
+
+	; 以下为内部函数定义——
 
 	; 检查到新版本时更新托盘呈现。
 	; **注意：这是一个耗时函数。**
-	check_update() {
-		up_res := upc.has_update(86)
+	; - `timeout`：请求全程的最大等待时间（单位为秒）。
+	check_update(timeout) {
+		up_res := upc.has_update(timeout)
 		if up_res != false {
 			tra.the_program_has_update(up_res)
 		}
