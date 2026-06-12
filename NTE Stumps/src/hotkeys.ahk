@@ -28,12 +28,12 @@ class Hotkeys {
 		for active_title in ACTIVE_TITLE_LIST {
 			HotIfWinActive(active_title)
 
-			macro_rk_1 := Self.macro.RepeatKeystroke()
+			macro_rk_1 := Self.macro.RepeatKeystrokeSingle()
 			hotkey_rk_1_enable_state := cfg.data.交互重复.启用状态.data == true ? "On" : "Off"
 			Hotkey(cfg.data.交互重复.映射按键.data, macro_rk_1, hotkey_rk_1_enable_state)
 
 			for key_list in cfg.data.按键重复.按键列表.data {
-				macro_rk_2 := Self.macro.RepeatKeystroke()
+				macro_rk_2 := Self.macro.RepeatKeystrokeMultiple(1000/6.2)
 				hotkey_rk_2_enable_state := cfg.data.按键重复.启用状态.data == true ? "On" : "Off"
 				for key_name in key_list {
 					Hotkey(key_name, macro_rk_2, hotkey_rk_2_enable_state)
@@ -65,15 +65,105 @@ class Hotkeys {
 
 
 
-	; 
+	; 用于热键的宏。
 	class macro {
 		; 
-		class RepeatKeystroke {
-			Call(*) {
-				ToolTip("Ok") ; =============================== todo
-				; 妈的，配置验证有了问题，运行中同步就不应该检查重复了，或者说不应该重新读取，否则验证会有问题，而且初始化实际上也不应该强行写入，完全多此一举。
-			}
-		} ; class RepeatKeystroke
+		; https://gemini.google.com/app/ee6ba2e285ca6eaa
+		; https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-systemparametersinfow
+		class RepeatKeystrokeSingle {
+
+		} ; class RepeatKeystrokeSingle
+
+
+
+		; 
+		; 实现参考：https://bitbucket.org/paclora_epo/3oostumps/src/fb6b63869c04e6e1ccdf038bf947447eee4e966c/%E6%BA%90%E7%A0%81/3ooStumps/.PARTIAL/MacroLogic.ahk#lines-192 。
+		class RepeatKeystrokeMultiple {
+			; 
+			repeat_interval := 1000 / 6
+			; 
+			floating_multiplier := 0.25
+
+
+
+			; 
+			__New(repeat_interval := 1000/6, floating_multiplier := 0.25) {
+				this.repeat_interval := repeat_interval
+				this.floating_multiplier := floating_multiplier
+			} ; func __New
+
+
+
+			; 
+			previous_key := ""
+			; 
+			current_key  := ""
+
+
+
+			; 
+			Call(key_name_from_call) {
+				this.previous_key := this.current_key
+				this.current_key := key_name_from_call
+
+				if (this.current_key == this.previous_key) {
+					return
+				}
+
+				SetTimer(this.monitor_key, 25)
+
+				SetTimer(this.press_key, 0)
+				this.press_key_call()
+			} ; func Call
+
+
+
+			; 
+			press_key := ObjBindMethod(this, "press_key_call")
+
+			; 
+			press_key_call() {
+				Send("{" this.current_key " Down}")
+
+				tempk := this.current_key
+				SetTimer((*) => Send("{" tempk " Up}"), -this.get_the_next_release_interval())
+
+				SetTimer(this.press_key, -this.get_the_next_press_interval())
+			} ; func press_key_call
+
+
+
+			; 
+			monitor_key := ObjBindMethod(this, "monitor_key_Call") ; 间接绑定.
+
+			; 
+			monitor_key_Call() {
+				if (GetKeyState(this.current_key, "P") == false) {
+					SetTimer(this.press_key, 0)
+					SetTimer(this.monitor_key, 0)
+
+					this.current_key := ""
+				}
+			} ; func monitor_key_Call
+
+
+
+			; 
+			get_the_next_press_interval() {
+				float := (this.repeat_interval * this.floating_multiplier) * 0.5
+				return Integer(Random(this.repeat_interval-float, this.repeat_interval+float))
+			} ; func get_the_next_press_interval
+
+
+
+			; 
+			get_the_next_release_interval() {
+				remaining := this.repeat_interval - (this.repeat_interval * this.floating_multiplier * 0.5)
+				base := remaining * 0.5
+				float := (base * (this.floating_multiplier * 2)) * 0.5
+				return Integer(Random(base-float, base+float))
+			} ; func get_the_next_release_interval
+		} ; class RepeatKeystrokeMultiple
 
 
 
@@ -107,7 +197,7 @@ class Hotkeys {
 
 
 			; 缓存标志，记录上一个传入的按键名。
-			flag_for_previous_key := ""
+			previous_key := ""
 
 
 
@@ -117,12 +207,12 @@ class Hotkeys {
 			; 也就是说，一个新按键的传入会开始一次倒计时，倒计时内如果是传入了相同的按键，则触发宏逻辑并停止计时器，否则被视为新按键。
 			; 有关计时调用，详见：https://wyagd001.github.io/v2/docs/lib/SetTimer.htm 。
 			Call(key_name_from_call) {
-				if this.flag_for_previous_key != key_name_from_call {
-					this.flag_for_previous_key := key_name_from_call
+				if this.previous_key != key_name_from_call {
+					this.previous_key := key_name_from_call
 					SetTimer(this.clear_flag, -this.trigger_range)
 				} else {
 					SetTimer(this.clear_flag, 0)
-					this.flag_for_previous_key := ""
+					this.previous_key := ""
 					this.macro_logic()
 				}
 			} ; func Call
@@ -144,7 +234,7 @@ class Hotkeys {
 
 			; 清除缓存标志，作为`clear_flag`的源。
 			clear_flag_call() {
-				this.flag_for_previous_key := ""
+				this.previous_key := ""
 			} ; func clear_flag_call
 		} ; class DoubleKeyPress
 

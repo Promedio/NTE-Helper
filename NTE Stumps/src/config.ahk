@@ -121,17 +121,18 @@ class Config {
 
 
 
-	; 初始化配置数据并生成配置文件，应在使用`cfg.data`前调用一次，程序整个生命周期内无需再次调用。
-	; 打开并读取配置文件，解析出错时将弹出错误提示以中止程序，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行；
-	; 若未有警告，函数紧随写入一次，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行。
+	; 初始化配置数据，应在使用`cfg.data`前调用一次，程序整个生命周期内无需再次调用。
+	; 打开并读取配置文件，解析出错时将弹出错误提示以中止程序，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行。
 	; **注意：此函数可能会退出程序。**
 	; - `file_full_name`：配置文件的完整文件名；
 	; - `file_dir`：配置文件所在目录的路径，默认为程序所在的目录（`A_ScriptDir`）。
 	static initialize(file_full_name := cfg.config_file_full_name, file_dir := A_ScriptDir, Self := cfg) {
 		config_file_full_path := file_dir "\" file_full_name
 
-		; 假定初次读取，文件不存在时放弃读取，打开失败时进入catch，解析出错时弹出错误提示。
+		; 假定初次读取，仅在文件存在时尝试读取，打开失败时进入catch，解析出错时弹出错误提示。
 		; 此处如果用户选择继续执行，则程序可以继续执行，但由于未能打开配置文件，程序将直接使用默认定义。
+		; 设若文件不存在，将创建并写入配置文件，打开或创建失败时进入catch。
+		; 此处如果用户选择继续执行，则程序可以继续执行，但配置文件未能保存。
 		if FileExist(config_file_full_path) {
 			try {
 				Self.read_config_from_file(config_file_full_path)
@@ -142,32 +143,25 @@ class Config {
 					"所以，程序将使用默认配置。"
 					, A_ThisFunc
 				)
-				goto FIN
 			}
-		} else { ; =============================== todo
-
-		; 数据已经读取或放弃读取，覆盖写回配置文件，文件不存在时创建文件，打开或创建失败时进入catch。
-		; 此处如果用户选择继续执行，则程序可以继续执行，但配置文件未能保存。
-		try {
-			Self.write_config_to_file(config_file_full_path)
-		} catch Error as e {
-			dui.warning_dialog(
-				"未能打开或创建配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
-				"`n"
-				"所以，程序无法保存配置。"
-				, A_ThisFunc
-			)
+		} else {
+			try {
+				Self.write_config_to_file(config_file_full_path)
+			} catch Error as e {
+				dui.warning_dialog(
+					"未能打开或创建配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
+					"`n"
+					"所以，程序未能生成配置。"
+					, A_ThisFunc
+				)
+			}
 		}
-		} ; =============================== todo
-
-		FIN:
 	} ; func initialize
 
 
 
 	; 同步当前配置数据到配置文件，应在`cfg.data`被修改时调用一次，每次修改一个或多个配置数据后都应该调用。
-	; 打开并写入配置文件，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行；
-	; 若未有警告，函数紧随读取一次，解析出错时将弹出错误提示以中止程序，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行。
+	; 打开并写入配置文件，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行。
 	; **注意：此函数可能会退出程序。**
 	; - `file_full_name`：配置文件的完整文件名；
 	; - `file_dir`：配置文件所在目录的路径，默认为程序所在的目录（`A_ScriptDir`）。
@@ -175,8 +169,7 @@ class Config {
 		config_file_full_path := file_dir "\" file_full_name
 
 		; 假定数据变更后的情形，覆盖写入配置文件，文件不存在时创建文件，打开或创建失败时进入catch。
-		; 如果进入catch，不能尝试写入，直接结束函数。
-		; 此处如果用户选择继续执行，则程序可以继续执行，但配置文件未能保存。
+		; 如果进入catch，且用户选择继续执行，则程序可以继续执行，但配置文件未能保存。
 		try {
 			Self.write_config_to_file(config_file_full_path)
 		} catch Error as e {
@@ -186,23 +179,7 @@ class Config {
 				"所以，程序无法保存配置。"
 				, A_ThisFunc
 			)
-			goto FIN
 		}
-/* ; =============================== todo
-		; 假定配置已经写回文件，重新读取以同步文件变更，文件不存在时或打开失败时进入catch，解析出错时弹出错误提示。
-		; 此处如果用户选择继续执行，则程序可以继续执行，但无法同步这些保存的配置（通常来说是没问题的，这里是提前进行了下一次启动的读取）。
-		try {
-			Self.read_config_from_file(config_file_full_path)
-		} catch Error as e {
-			dui.warning_dialog(
-				"未能打开配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
-				"`n"
-				"所以，程序无法确保与配置文件保持同步。"
-				, A_ThisFunc
-			)
-		}
-*/ ; =============================== todo
-		FIN:
 	} ; func synchronize
 
 

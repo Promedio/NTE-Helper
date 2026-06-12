@@ -15,7 +15,7 @@ ListLines(0)                      ; 关闭执行历史。
 KeyHistory(!A_IsCompiled)         ; 编译状态下关闭按键历史。
 Thread("Interrupt", 0)            ; 允许线程立即中断。
 
-#MaxThreads 10      ; 此值被设定为同时可容许热键（4）的二倍，并额外扩充了其它阻塞任务的数目（2）。
+#MaxThreads 24      ; 限制最大模拟线程，理论上是为了通过触发阻塞来发现问题。
 SendMode("Input")   ; 设置发送模式为 Input。
 A_MenuMaskKey := "" ; 防止遮盖控制键。
 
