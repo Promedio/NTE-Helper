@@ -68,10 +68,11 @@ class Hotkeys {
 	; 用于热键的宏。
 	class macro {
 		; 
-		; https://gemini.google.com/app/ee6ba2e285ca6eaa
+		; https://gemini.google.com/app/ee6ba2e285ca6eaa - 12
 		; https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-systemparametersinfow
 		class RepeatKeystrokeSingle {
-			Call(*) {
+			; 
+			Call(key_name_from_call) {
 
 			}
 		} ; class RepeatKeystrokeSingle
@@ -234,6 +235,9 @@ class Hotkeys {
 		; 注意：不建议将此类的实例绑定给多个按键，如果绑定的按键中带有控制键，则可能在某些快速击键中被意外触发（测试的按键是RShift和RCtrl，快速轮替时经常无法正常交替触发）。
 		; 有关腭化按键，请见：https://wyagd001.github.io/v2/docs/Hotkeys.htm#Tilde 。
 		class DoubleKeystroke {
+			; 
+			bound_key_name := ""
+
 			; 两次连续击键的容许范围。
 			; 有关系统默认，详见：https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-setdoubleclicktime 。
 			trigger_range := 500
@@ -244,6 +248,7 @@ class Hotkeys {
 			; 此类无需提供具体按键名，因未设计原键触发或异键宏逻辑，传入的按键即是触发的按键，因此必须绑定腭化按键，除非不需要按键的原有功能。
 			; 有关腭化按键，请见：https://wyagd001.github.io/v2/docs/Hotkeys.htm#Tilde 。
 			__New() {
+			;	this.bound_key_name := key_name
 				this.trigger_range := this.calculate_trigger_range_from_system_double_click_time(this.trigger_range)
 			} ; func __New
 
@@ -260,8 +265,10 @@ class Hotkeys {
 
 
 
-			; 缓存标志，记录上一个传入的按键名。
-			previous_key := ""
+			; 缓存标志，记录当前正使用的按键名。
+			current_key := ""
+			; 
+			key_flag := false
 
 
 
@@ -269,16 +276,50 @@ class Hotkeys {
 			; 如果当前按键名与前次按键名不同，储存此名为前次按键名，然后创建一个计时器，在一定倒计时后清除前次按键名；
 			; 如果当前按键名与前次按键名相同，立即停止相关计时器，然后清除前次按键名，最后执行宏逻辑。
 			; 也就是说，一个新按键的传入会开始一次倒计时，倒计时内如果是传入了相同的按键，则触发宏逻辑并停止计时器，否则被视为新按键。
+			; 
+			; 
 			; 有关计时调用，详见：https://wyagd001.github.io/v2/docs/lib/SetTimer.htm 。
 			Call(key_name_from_call) {
-				if this.previous_key != key_name_from_call {
-					this.previous_key := key_name_from_call
+			; 这个实现其实可以，但是无法等待腭化按键，只能放弃多按键实现了。
+
+			;	if key_name_from_call == this.current_key {
+			;		return
+			;	}
+
+			;	this.current_key := key_name_from_call
+
+			;	if (this.key_flag == true) {
+			;		this.macro_logic()
+			;		this.key_flag := false
+			;		SetTimer(this.clear_flag, 0)
+			;		this.current_key := ""
+			;		
+			;	} else {
+			;		this.key_flag := true
+			;		SetTimer(this.clear_flag, - this.trigger_range)
+			;	}
+
+			;	KeyWait(key_name_from_call)
+			;	this.current_key := ""
+
+
+				if key_name_from_call == this.current_key {
+					return
+				}
+
+				this.current_key := key_name_from_call
+
+				if (this.key_flag == false) {
+					this.key_flag := true
 					SetTimer(this.clear_flag, - this.trigger_range)
 				} else {
+					this.key_flag := false
 					SetTimer(this.clear_flag, 0)
-					this.previous_key := ""
 					this.macro_logic()
+					
 				}
+
+				; 妈的，还是等一个具体按键吧。
 			} ; func Call
 
 
@@ -298,7 +339,7 @@ class Hotkeys {
 
 			; 清除缓存标志，作为`clear_flag`的源。
 			clear_flag_call() {
-				this.previous_key := ""
+				this.key_flag := false
 			} ; func clear_flag_call
 		} ; class DoubleKeyPress
 
