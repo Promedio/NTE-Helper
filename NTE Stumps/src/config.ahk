@@ -122,23 +122,35 @@ class Config {
 
 
 	; 初始化配置数据，应在使用`cfg.data`前调用一次，程序整个生命周期内无需再次调用。
-	; 打开并读取配置文件，解析出错时将弹出错误提示以中止程序，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行。
+	; 打开并读取和格式化配置文件，解析或写入出错时将弹出错误提示以中止程序，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行。
 	; **注意：此函数可能会退出程序。**
 	; - `file_full_name`：配置文件的完整文件名；
 	; - `file_dir`：配置文件所在目录的路径，默认为程序所在的目录（`A_ScriptDir`）。
 	static initialize(file_full_name := cfg.config_file_full_name, file_dir := A_ScriptDir, Self := cfg) {
 		config_file_full_path := file_dir "\" file_full_name
 
-		; 假定初次读取，仅在文件存在时尝试读取，打开失败时进入catch，解析出错时弹出错误提示。
-		; 此处如果用户选择继续执行，则程序可以继续执行，但由于未能打开配置文件，程序将直接使用默认定义。
+		; 假定初次读取，仅在文件存在时尝试读取，成功后还进行一次写入，打开失败时进入catch，解析或写入出错时弹出警告提示。
+		; 如果用户选择继续执行，则程序可以继续执行——
+		; 对于读取错误，由于未能打开配置文件，程序将直接使用默认定义；
+		; 对于写入错误，由于未能写回配置文件，程序不会有任何影响，只是缺少了配置文件的重新格式化。
 		; 设若文件不存在，将创建并写入配置文件，打开或创建失败时进入catch。
 		; 此处如果用户选择继续执行，则程序可以继续执行，但配置文件未能保存。
 		if FileExist(config_file_full_path) {
 			try {
 				Self.read_config_from_file(config_file_full_path)
+				try {
+					Self.write_config_to_file(config_file_full_path)
+				} catch Error as e {
+					dui.warning_dialog(
+						"未能打开或写入配置文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
+						"`n"
+						"所以，程序未能格式化配置内容。"
+						, A_ThisFunc
+					)
+				}
 			} catch Error as e {
 				dui.warning_dialog(
-					"未能打开配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
+					"未能打开或读取配置文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
 					"`n"
 					"所以，程序将使用默认配置。"
 					, A_ThisFunc
@@ -146,12 +158,12 @@ class Config {
 			}
 		} else {
 			try {
-				Self.write_config_to_file(config_file_full_path)
+				Self.write_config_to_file(config_file_full_path, true)
 			} catch Error as e {
 				dui.warning_dialog(
-					"未能打开或创建配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
+					"未能创建配置文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
 					"`n"
-					"所以，程序未能生成配置。"
+					"所以，程序未能生成配置文件。"
 					, A_ThisFunc
 				)
 			}
@@ -163,18 +175,19 @@ class Config {
 	; 同步当前配置数据到配置文件，应在`cfg.data`被修改时调用一次，每次修改一个或多个配置数据后都应该调用。
 	; 打开并写入配置文件，若文件不存在则创建，打开或创建失败时将弹出警告提示，由用户选择是否要继续执行。
 	; **注意：此函数可能会退出程序。**
+	; - `full_stringify`：指示是否需要完整序列化，多用于初次创建配置文件。
 	; - `file_full_name`：配置文件的完整文件名；
 	; - `file_dir`：配置文件所在目录的路径，默认为程序所在的目录（`A_ScriptDir`）。
-	static synchronize(file_full_name := cfg.config_file_full_name, file_dir := A_ScriptDir, Self := cfg) {
+	static synchronize(full_stringify := false, file_full_name := cfg.config_file_full_name, file_dir := A_ScriptDir, Self := cfg) {
 		config_file_full_path := file_dir "\" file_full_name
 
 		; 假定数据变更后的情形，覆盖写入配置文件，文件不存在时创建文件，打开或创建失败时进入catch。
 		; 如果进入catch，且用户选择继续执行，则程序可以继续执行，但配置文件未能保存。
 		try {
-			Self.write_config_to_file(config_file_full_path)
+			Self.write_config_to_file(config_file_full_path, full_stringify)
 		} catch Error as e {
 			dui.warning_dialog(
-				"未能打开或创建配置文件文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
+				"未能创建或写入配置文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
 				"`n"
 				"所以，程序无法保存配置。"
 				, A_ThisFunc
@@ -195,9 +208,9 @@ class Config {
 			current_section  := Self.data.交互重复 ; 组 --- --- --- ---
 
 			current_key      := current_section.映射按键
-			current_key.data := Self.pas.parse_single_key( IniRead(file_full_path, current_section.id, current_key.id))
+			current_key.data := Self.pas.parse_single_key( IniRead(file_full_path, current_section.id, current_key.id), true) ; 支持空结果。
 			current_key      := current_section.触发按键
-			current_key.data := Self.pas.parse_single_key( IniRead(file_full_path, current_section.id, current_key.id))
+			current_key.data := Self.pas.parse_single_key( IniRead(file_full_path, current_section.id, current_key.id), true) ; 支持空结果。
 			current_key      := current_section.启用状态
 			current_key.data := Self.pas.parse_switch(     IniRead(file_full_path, current_section.id, current_key.id))
 
@@ -205,7 +218,7 @@ class Config {
 
 			current_key      := current_section.按键列表
 			current_key.data := Self.pas.parse_td_key_list(IniRead(file_full_path, current_section.id, current_key.id)) ; 默认支持空结果。
-			current_key := current_section.启用状态
+			current_key      := current_section.启用状态
 			current_key.data := Self.pas.parse_switch(     IniRead(file_full_path, current_section.id, current_key.id))
 
 			current_section  := Self.data.杂项设置 ; 组 --- --- --- ---
@@ -224,17 +237,40 @@ class Config {
 	; 将当前配置写入配置文件。
 	; 打开并覆盖写入配置文件，目标不存在时创建新文件，打开或创建失败时原样返回`FileOpen`的错误。
 	; - `file_full_path`：配置文件的完整路径；
+	; - `full_stringify`：指示是否需要完整序列化，多用于初次创建配置文件。
 	; - 返回值：写入成功时返回`true`，失败时返回`OSError`。
 	; 实现参考：https://bitbucket.org/paclora_epo/calabiyau-helper/src/ce2c332a53d48cab1b87e6b3870195942ca9980a/Scroll%20Wheel%20Behavior/Scroll%20Wheel%20Behavior%20for%20CalabiYau%20-%201.1.3.ahk#lines-308 。
-	static write_config_to_file(file_full_path, Self := cfg) {
+	static write_config_to_file(file_full_path, full_stringify := false, Self := cfg) {
 		try {
-			file := Self.open_file(file_full_path, true)
+			if full_stringify == true {
+				file := Self.open_file(file_full_path, true)
+				file.Write(Self.stringify_config_data())
+				file.Close()
+			} else {
+				current_section := Self.data.交互重复 ; 组 --- --- --- ---
+
+				current_key     := current_section.映射按键
+				IniWrite(                               current_key.data , file_full_path, current_section.id, current_key.id)
+				current_key     := current_section.触发按键
+				IniWrite(                               current_key.data , file_full_path, current_section.id, current_key.id)
+				current_key     := current_section.启用状态
+				IniWrite(     Self.pas.stringify_switch(current_key.data), file_full_path, current_section.id, current_key.id)
+
+				current_section := Self.data.按键重复 ; 组 --- --- --- ---
+
+				current_key     := current_section.按键列表
+				IniWrite(Self.pas.stringify_td_key_list(current_key.data), file_full_path, current_section.id, current_key.id)
+				current_key     := current_section.启用状态
+				IniWrite(     Self.pas.stringify_switch(current_key.data), file_full_path, current_section.id, current_key.id)
+
+				current_section := Self.data.杂项设置 ; 组 --- --- --- ---
+
+				current_key     := current_section.全局按键
+				IniWrite(                               current_key.data, file_full_path, current_section.id, current_key.id)
+			}
 		} catch {
 			throw ; 抛出而不报错是因为上层逻辑中可能存在不同的解释方式。
 		}
-
-		file.Write(Self.stringify_config_data())
-		file.Close()
 
 		return true
 	} ; func write_config_to_file
@@ -254,8 +290,10 @@ class Config {
 			endl .
 			"# －“交互重复”功能可重复特定按键，" endl .
 			"# 　　当您保持按下“映射按键”时，软件将持续发送“触发按键”。" endl .
-			"# ＊“映射按键”是您确实需要按下的按键名；" endl .
-			"# ＊“触发按键”是软件向游戏实际发送的按键名；" endl .
+			"# ＊“映射按键”是您确实需要按下的按键名，" endl .
+			"# 　　如果您留空，当前功能不会生效；" endl .
+			"# ＊“触发按键”是软件向游戏实际发送的按键名，" endl .
+			"# 　　如果您留空，当前功能不会生效；" endl .
 			"# ＊“启用状态”指示当前功能是否应当生效，一般通过托盘菜控制，" endl .
 			"# 　　可填写“开”或“关”。" endl .
 			"[" Self.data.交互重复.id "]" endl .
