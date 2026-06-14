@@ -40,7 +40,7 @@ class Hotkeys {
 				}
 			}
 
-			macro_dktss_1 := Self.macro.DoubleKeystrokeToSwitchSuspendState()
+			macro_dktss_1 := Self.macro.DoubleKeystrokeToSwitchSuspendState(cfg.data.杂项设置.全局按键.data)
 			Hotkey("~" cfg.data.杂项设置.全局按键.data, macro_dktss_1, "S") ; 穿透且豁免。
 		}
 		HotIfWinActive()
@@ -132,10 +132,10 @@ class Hotkeys {
 				; 由于传入的按键随时可能变化，而宏整体又有异步时间性过程，此处立即共享到类内变量供该函数的所有线程使用。
 				this.current_key := key_name_from_call
 
-				; 如果两值相等，必定是来自系统的自动重复击键，拒绝执行后续立即。
+				; 如果两值相等，必定是来自系统的自动重复击键，拒绝执行后续逻辑。
 				; 这里之所以能如此判断，是因为函数开头先备份了当前按键到先前按键，而后续逻辑中，在当前按键释放时，
 				; 当前按键的变量内容会被重置，又因为函数第一行先执行备份，空值自然流动至先前按键，故当前按键永远不可能为空。
-				if (this.current_key == this.previous_key) {
+				if this.current_key == this.previous_key {
 					return
 				}
 
@@ -157,8 +157,6 @@ class Hotkeys {
 			; `press_key_call`的绑定函数对象，绑定到此类的实例。
 			; 有关绑定函数，请见：https://wyagd001.github.io/v2/docs/misc/Functor.htm#BoundFunc 。
 			press_key := ObjBindMethod(this, "press_key_call")
-
-
 
 			; 触发和预定按键，作为`press_key`的源。
 			; 立即按下`current_key`，订阅一次抬起当前按键的计时器并同时订阅重复触发此函数的计时器。
@@ -187,13 +185,11 @@ class Hotkeys {
 			; 有关绑定函数，请见：https://wyagd001.github.io/v2/docs/misc/Functor.htm#BoundFunc 。
 			monitor_key := ObjBindMethod(this, "monitor_key_Call") ; 间接绑定.
 
-
-
 			; 监控和清除预定，作为`monitor_key`的源。
 			; 持续检测`current_key`的按下状态，按键抬起时停止所有计时器并置空`current_key`。
 			; 注意：`current_key`随时可能改变，因此计时器始终检测最后传入的按键；置空`current_key`是为了其能在下次传入新按键时自然流动给`previous_key`。
 			monitor_key_call() {
-				if (GetKeyState(this.current_key, "P") == false) {
+				if GetKeyState(this.current_key, "P") == false {
 					SetTimer(this.press_key, 0)
 					SetTimer(this.monitor_key, 0)
 
@@ -232,10 +228,13 @@ class Hotkeys {
 
 		; 在一定时间内连续击键两次便可触发宏逻辑。
 		; 此类被设计为不影响按键的原有功能，因此必须绑定腭化按键，除非不需要按键的原有功能。
-		; 注意：不建议将此类的实例绑定给多个按键，如果绑定的按键中带有控制键，则可能在某些快速击键中被意外触发（测试的按键是RShift和RCtrl，快速轮替时经常无法正常交替触发）。
+		; 注意：不能将此类的实例绑定给多个按键。
 		; 有关腭化按键，请见：https://wyagd001.github.io/v2/docs/Hotkeys.htm#Tilde 。
 		class DoubleKeystroke {
-			; 
+			; 内部检查器的重复间隔。
+			tick_interval := Round(1000 / 40)
+
+			; 宏所绑定的按键名。
 			bound_key_name := ""
 
 			; 两次连续击键的容许范围。
@@ -245,10 +244,9 @@ class Hotkeys {
 
 
 			; 创建类。
-			; 此类无需提供具体按键名，因未设计原键触发或异键宏逻辑，传入的按键即是触发的按键，因此必须绑定腭化按键，除非不需要按键的原有功能。
-			; 有关腭化按键，请见：https://wyagd001.github.io/v2/docs/Hotkeys.htm#Tilde 。
-			__New() {
-			;	this.bound_key_name := key_name
+			; - `key_name`：所要检测的按键名。
+			__New(key_name) {
+				this.bound_key_name := key_name
 				this.trigger_range := this.calculate_trigger_range_from_system_double_click_time(this.trigger_range)
 			} ; func __New
 
@@ -265,61 +263,56 @@ class Hotkeys {
 
 
 
-			; 缓存标志，记录当前正使用的按键名。
-			current_key := ""
-			; 
+			; 缓存标志，标示是否应当阻止按键传入。
+			key_block := false
+			; 缓存标志，标示是否已经准备好接受第二次击键。
 			key_flag := false
+
+			; 缓存标志，记录了首个传入的按键名。
+			first_key := ""
 
 
 
 			; 外部按键传入——
-			; 如果当前按键名与前次按键名不同，储存此名为前次按键名，然后创建一个计时器，在一定倒计时后清除前次按键名；
-			; 如果当前按键名与前次按键名相同，立即停止相关计时器，然后清除前次按键名，最后执行宏逻辑。
-			; 也就是说，一个新按键的传入会开始一次倒计时，倒计时内如果是传入了相同的按键，则触发宏逻辑并停止计时器，否则被视为新按键。
-			; 
-			; 
+			; 函数会根据实例创建时的按键名来过滤来自系统的自动重复击键；
+			; 如果有不同于初次触发的按键传入，函数会立即显示错误消息提示框。
+			; 在函数被触发后的一段时间内，再次触发即可执行具体宏逻辑。
 			; 有关计时调用，详见：https://wyagd001.github.io/v2/docs/lib/SetTimer.htm 。
 			Call(key_name_from_call) {
-			; 这个实现其实可以，但是无法等待腭化按键，只能放弃多按键实现了。
-
-			;	if key_name_from_call == this.current_key {
-			;		return
-			;	}
-
-			;	this.current_key := key_name_from_call
-
-			;	if (this.key_flag == true) {
-			;		this.macro_logic()
-			;		this.key_flag := false
-			;		SetTimer(this.clear_flag, 0)
-			;		this.current_key := ""
-			;		
-			;	} else {
-			;		this.key_flag := true
-			;		SetTimer(this.clear_flag, - this.trigger_range)
-			;	}
-
-			;	KeyWait(key_name_from_call)
-			;	this.current_key := ""
-
-
-				if key_name_from_call == this.current_key {
+				; 此处阻止标记随绑定按键的按下而生效并随释放而取消，
+				; 也就是说，只要绑定按键正被按下就不接受任何按键，这是为了避免接受来自系统的自动重复击键。
+				if this.key_block == true {
 					return
 				}
 
-				this.current_key := key_name_from_call
+				; 若传入的按键与初次按键不同，要检查是否是第一次传入，如果不是则弹出错误提示，这是为了避免宏被绑定到多个按键上。
+				if key_name_from_call != this.first_key {
+					if this.first_key == "" {
+						this.first_key := key_name_from_call
+					} else {
+						dui.error_dialog("该宏不能传入多个按键。", A_ThisFunc, "内部错误")
+					}
+				}
 
-				if (this.key_flag == false) {
+				; 执行到此处，说明按键无误，开启阻塞标记并订阅一个计时器，
+				; 这个计时器将持续检测绑定按键的按下状态，抬起时将关闭阻塞并停止自身。
+				this.key_block := true
+				SetTimer(this.monitor_key, this.tick_interval)
+
+				; 此处判断双击状态——
+				if this.key_flag == false {
+					; 如果尚未进行第一次击键，标记一次并定时清除一次；
 					this.key_flag := true
 					SetTimer(this.clear_flag, - this.trigger_range)
 				} else {
-					this.key_flag := false
+					; 否则，这里应当处于容许范围内（也就是还处于上方计时器执行之前），
+					; 立即停止计时器并清除按键标记（也就是将倒计时提前到此刻，重置了击键状态，否则可能会把下次击键视为第二次），
+					; 然后执行宏逻辑。
 					SetTimer(this.clear_flag, 0)
+					this.key_flag := false
+					; 不过这里还有一些矛盾：这里的宏逻辑如果是耗时函数的话，会不会有问题？
 					this.macro_logic()
-					
 				}
-
-				; 妈的，还是等一个具体按键吧。
 			} ; func Call
 
 
@@ -331,13 +324,26 @@ class Hotkeys {
 
 
 
+			; `monitor_key_call`的绑定函数对象，绑定到此类的实例。
+			; 有关绑定函数，请见：https://wyagd001.github.io/v2/docs/misc/Functor.htm#BoundFunc 。
+			monitor_key := ObjBindMethod(this, "monitor_key_call")
+
+			; 清除缓存标志`key_block`并停止预定，作为`monitor_key`的源。
+			monitor_key_call() {
+				if GetKeyState(this.bound_key_name, "P") == false {
+					SetTimer(this.monitor_key, 0)
+
+					this.key_block := false
+				}
+			} ; func monitor_key_call
+
+
+
 			; `clear_flag_call`的绑定函数对象，绑定到此类的实例。
 			; 有关绑定函数，请见：https://wyagd001.github.io/v2/docs/misc/Functor.htm#BoundFunc 。
 			clear_flag := ObjBindMethod(this, "clear_flag_call")
 
-
-
-			; 清除缓存标志，作为`clear_flag`的源。
+			; 清除缓存标志`key_flag`，作为`clear_flag`的源。
 			clear_flag_call() {
 				this.key_flag := false
 			} ; func clear_flag_call
@@ -349,6 +355,7 @@ class Hotkeys {
 		; 此类必须绑定腭化按键，详见`hks.macro.DoubleKeystroke`的说明。
 		class DoubleKeystrokeToSwitchSuspendState extends Hotkeys.macro.DoubleKeystroke {
 			; 重新实现的宏逻辑，将调用`tra.cal.全局功能启用状态`，如果触发结果为启用则发出 G6 哔声，为挂起则发出 G5 哔声。
+			; 注意：此函数在系统层面是阻塞的，因此可能会影响连续击键的流程度，比如在连续四次击键时可能无法连续响应两次逻辑，而需要在听到声音时停止一些时间。
 			macro_logic() {
 				tra.cal.全局功能启用状态()
 				if A_IsSuspended == false {

@@ -41,7 +41,7 @@ class Environment {
 		}
 
 		for arg in A_Args {
-			if (InStr("/restart", arg) != 0) {
+			if InStr("/restart", arg) != 0 {
 				dui.warning_dialog("未能以管理员权限运行，要再次尝试吗？", A_ThisFunc)
 				break
 			}
