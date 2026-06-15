@@ -262,6 +262,16 @@ class Hotkeys {
 				; 这是考虑到不同按键之间有重叠比较正常，而因主动触发较快导致的重叠也不应该忽略抬起。
 				SetTimer((*) => Send("{" this.trigger_key " Up}"), - next_release_interval)
 
+				; 按需订阅一次滚轮，不做任任何管理。
+				; 滚轮不会在第一次击键之后附加，这是为了保持首次击键的纯粹。
+				; 目前此行为还不够仿真，因为没有人会在高速击键期间每次都精准地滚一次轮。
+				if cfg.data.交互重复.附加滚轮.data == true and first_delay == "" {
+					; `get_the_next_release_interval`函数刚好可以计算出类似的间隔。嗯，屎山 +1 了。
+					next_scroll_interval := this.get_the_next_release_interval(next_press_interval)
+					SetTimer((*) => Send("{WheelDown}"), - next_scroll_interval)
+				;	ToolTip(Format("Pt {:03}`nRt {:03}`nSt {:03}", next_press_interval, next_release_interval, next_scroll_interval))
+				}
+
 				; 订阅下一次击键。此处可以不用负数，因为此订阅受持续计时器管理。
 				SetTimer(this.press_key, - next_press_interval)
 			} ; func press_key_call

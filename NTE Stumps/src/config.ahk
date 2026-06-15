@@ -63,6 +63,16 @@ class Config {
 				static data := "f"
 			} ; class 触发按键
 
+			; 指示当前功能的附加行为。
+			; 在配置文件内作为段的键。
+			class 附加滚轮 {
+				; 具体键名。
+				static id   := "附加滚轮"
+				; 具体值，布尔类型。
+				; 默认值为`true`。
+				static data := true
+			} ; class 附加滚轮
+
 			; 指示当前功能是否可以生效。
 			; 在配置文件内作为段的键。
 			class 启用状态 {
@@ -208,6 +218,8 @@ class Config {
 			current_key.data := Self.pas.parse_single_key( IniRead(file_full_path, current_section.id, current_key.id), true) ; 支持空结果。
 			current_key      := current_section.触发按键
 			current_key.data := Self.pas.parse_single_key( IniRead(file_full_path, current_section.id, current_key.id), true) ; 支持空结果。
+			current_key      := current_section.附加滚轮
+			current_key.data := Self.pas.parse_switch(     IniRead(file_full_path, current_section.id, current_key.id))
 			current_key      := current_section.启用状态
 			current_key.data := Self.pas.parse_switch(     IniRead(file_full_path, current_section.id, current_key.id))
 
@@ -250,6 +262,8 @@ class Config {
 				IniWrite(                               current_key.data , file_full_path, current_section.id, current_key.id)
 				current_key     := current_section.触发按键
 				IniWrite(                               current_key.data , file_full_path, current_section.id, current_key.id)
+				current_key     := current_section.附加滚轮
+				IniWrite(     Self.pas.stringify_switch(current_key.data), file_full_path, current_section.id, current_key.id)
 				current_key     := current_section.启用状态
 				IniWrite(     Self.pas.stringify_switch(current_key.data), file_full_path, current_section.id, current_key.id)
 
@@ -291,11 +305,14 @@ class Config {
 			"# 　　如果您留空，当前功能不会生效；" endl .
 			"# ＊“触发按键”是软件向游戏实际发送的按键名，" endl .
 			"# 　　如果您留空，当前功能不会生效；" endl .
+			"# ＊“附加滚轮”指示当前功能是否应在重复中附加滚轮，一般通过托盘菜控制，" endl .
+			"# 　　可填写“开”或“关”。" endl .
 			"# ＊“启用状态”指示当前功能是否应当生效，一般通过托盘菜控制，" endl .
 			"# 　　可填写“开”或“关”。" endl .
 			"[" Self.data.交互重复.id "]" endl .
 			Self.data.交互重复.映射按键.id "="                                Self.data.交互重复.映射按键.data  endl .
 			Self.data.交互重复.触发按键.id "="                                Self.data.交互重复.触发按键.data  endl .
+			Self.data.交互重复.附加滚轮.id "="      Self.pas.stringify_switch(Self.data.交互重复.附加滚轮.data) endl .
 			Self.data.交互重复.启用状态.id "="      Self.pas.stringify_switch(Self.data.交互重复.启用状态.data) endl .
 			endl .
 			"# －“按键重复”功能可批量重复按键，区别是成组支持的按键之间不会冲突。" endl .

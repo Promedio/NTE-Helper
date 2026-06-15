@@ -54,10 +54,17 @@ class Tray {
 			; 子项的名称文本。
 			static name := "启用交互按键重复功能"
 		} ; class 交互重复启用状态
+		; 切换类项，将指示相关宏的内部逻辑。
+		class 交互滚轮启用状态 {
+			; 子项的预期位置。
+			static id   := "6&"
+			; 子项的名称文本。
+			static name := "重复时附带滚轮"
+		} ; class 交互滚轮启用状态
 		; 切换类项，将切换相关热键的启用状态。
 		class 按键重复启用状态 {
 			; 子项的预期位置。
-			static id   := "6&"
+			static id   := "8&"
 			; 子项的名称文本。
 			static name := "启用其它按键重复功能"
 		} ; class 按键重复启用状态
@@ -65,7 +72,7 @@ class Tray {
 		; 此项不得位于最末，除非没有更需要靠后的项。
 		class 重启软件 {
 			; 子项的预期位置。
-			static id   := "8&"
+			static id   := "10&"
 			; 子项的名称文本。
 			static name := "重新启动软件"
 		} ; class 重启软件
@@ -73,7 +80,7 @@ class Tray {
 		; 此项必须位于最末。
 		class 退出软件 {
 			; 子项的预期位置。
-			static id   := "9&"
+			static id   := "11&"
 			; 子项的名称文本。
 			static name := "退出软件"
 		} ; class 退出软件
@@ -95,15 +102,17 @@ class Tray {
 	static construct_tray_menu(Self := tra, menu := A_TrayMenu) {
 		menu.Delete()
 
-		menu.Add(Self.item.关于软件.name        , (*) => Self.cal.关于软件()        ) ; 1&
-		menu.Add()                                                                    ; 2&
-		menu.Add(Self.item.全局功能启用状态.name, (*) => Self.cal.全局功能启用状态()) ; 3&
-		menu.Add()                                                                    ; 4&
-		menu.Add(Self.item.交互重复启用状态.name, (*) => Self.cal.交互重复启用状态()) ; 5&
-		menu.Add(Self.item.按键重复启用状态.name, (*) => Self.cal.按键重复启用状态()) ; 6&
-		menu.Add()                                                                    ; 7&
-		menu.Add(Self.item.重启软件.name        , (*) => Self.cal.重启软件()        ) ; 8&
-		menu.Add(Self.item.退出软件.name        , (*) => Self.cal.退出软件()        ) ; 9&
+		menu.Add(Self.item.关于软件.name        , (*) => Self.cal.关于软件()        ) ;  1&
+		menu.Add()                                                                    ;  2&
+		menu.Add(Self.item.全局功能启用状态.name, (*) => Self.cal.全局功能启用状态()) ;  3&
+		menu.Add()                                                                    ;  4&
+		menu.Add(Self.item.交互重复启用状态.name, (*) => Self.cal.交互重复启用状态()) ;  5&
+		menu.Add(Self.item.交互滚轮启用状态.name, (*) => Self.cal.交互滚轮启用状态()) ;  6&
+		menu.Add()                                                                    ;  7&
+		menu.Add(Self.item.按键重复启用状态.name, (*) => Self.cal.按键重复启用状态()) ;  8&
+		menu.Add()                                                                    ;  9&
+		menu.Add(Self.item.重启软件.name        , (*) => Self.cal.重启软件()        ) ; 10&
+		menu.Add(Self.item.退出软件.name        , (*) => Self.cal.退出软件()        ) ; 11&
 
 		menu.ClickCount := 1
 		menu.Default := Self.item.全局功能启用状态.name
@@ -125,6 +134,11 @@ class Tray {
 			menu.Check(  Self.item.交互重复启用状态.name)
 		} else {
 			menu.Uncheck(Self.item.交互重复启用状态.name)
+		}
+		if cfg.data.交互重复.附加滚轮.data == true {
+			menu.Check(  Self.item.交互滚轮启用状态.name)
+		} else {
+			menu.Uncheck(Self.item.交互滚轮启用状态.name)
 		}
 		if cfg.data.按键重复.启用状态.data == true {
 			menu.Check(  Self.item.按键重复启用状态.name)
