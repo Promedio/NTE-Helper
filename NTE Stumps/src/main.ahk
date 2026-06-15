@@ -40,7 +40,7 @@ GLOBAL TEST := FALSE          ; 测试控制。用于决定主页的执行分支
 GLOBAL ACTIVE_TITLE_LIST := [ ; 预期的 WinTitle 列表。
 ;	"异环"               ,    ; 稳固标题，无法在游戏内的悬浮窗口上使用（如登录提示）。
 	"ahk_exe HTGame.exe" ,    ; 固定程序，可能误判，能直接支持多个区服和客户端。
-	"ahk_class Notepad++",    ; 仅限调试。
+;	"ahk_class Notepad++",    ; 仅限调试。
 ;	"ahk_exe Code.exe"   ,    ; 仅限调试。
 ]
 
@@ -83,7 +83,10 @@ entry() {
 	tra.construct()
 
 	; 异步检查更新情况，有更新时通知托盘。
-;	SetTimer((*) => check_update(300), -1)
+	; 脚本状态下不检查，因为无法对比版本。
+	if A_IsCompiled == 1 {
+		SetTimer((*) => check_update(300), -1)
+	}
 
 	; 创建热键。
 	hks.create()
