@@ -4,7 +4,7 @@
 
 使用方法：直接启动。更多说明详见 [NTE Stumps 帮助文件.txt](./NTE Stumps/NTE Stumps 帮助文件.txt)。
 
-另请参见：[发布页 - NGA玩家社区](https://bbs.nga.cn/read.php?tid=46798001)、[下载页 - 蓝奏云](https://www.ilanzou.com/s/k9GX147s)、[下载页 - 百度网盘](https://pan.baidu.com/s/1BpnHifkOJNrqeIV5vsFy3Q?pwd=0423)。
+另请参见：[下载页 - 蓝奏云](https://www.ilanzou.com/s/k9GX147s)、[下载页 - 百度网盘](https://pan.baidu.com/s/1BpnHifkOJNrqeIV5vsFy3Q?pwd=0423)、[QQ群 - 426050379](https://qm.qq.com/q/S7EXvGdHeq)。
 
 ---
 
