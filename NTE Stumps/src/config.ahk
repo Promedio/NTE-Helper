@@ -86,8 +86,8 @@ class Config {
 				; 具体键名。
 				static id   := "按键列表"
 				; 具体值，二维数组，一维类型为字符串形式的单个按键。
-				; 默认值为空数组（`[]`而非`[[]]`）。
-				static data := []
+				; 默认值有内容。若要指定空值请设为空数组（`[]`而非`[[]]`）。
+				static data := [["1", "2", "3", "4"], ["q", "e", "r"]]
 			} ; class 按键列表
 
 			; 指示当前功能是否可以生效。
@@ -129,34 +129,10 @@ class Config {
 	static initialize(file_full_name := cfg.config_file_full_name, file_dir := A_ScriptDir, Self := cfg) {
 		config_file_full_path := file_dir "\" file_full_name
 
-		; 假定初次读取，仅在文件存在时尝试读取，成功后还进行一次写入，打开失败时进入catch，解析或写入出错时弹出警告提示。
-		; 如果用户选择继续执行，则程序可以继续执行——
-		; 对于读取错误，由于未能打开配置文件，程序将直接使用默认定义；
-		; 对于写入错误，由于未能写回配置文件，程序不会有任何影响，只是缺少了配置文件的重新格式化。
-		; 设若文件不存在，将创建并写入配置文件，打开或创建失败时进入catch。
-		; 此处如果用户选择继续执行，则程序可以继续执行，但配置文件未能保存。
-		if FileExist(config_file_full_path) {
-			try {
-				Self.read_config_from_file(config_file_full_path)
-				try {
-					Self.write_config_to_file(config_file_full_path)
-				} catch Error as e {
-					dui.warning_dialog(
-						"未能打开或写入配置文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
-						"`n"
-						"所以，程序未能格式化配置内容。"
-						, A_ThisFunc
-					)
-				}
-			} catch Error as e {
-				dui.warning_dialog(
-					"未能打开或读取配置文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
-					"`n"
-					"所以，程序将使用默认配置。"
-					, A_ThisFunc
-				)
-			}
-		} else {
+		; 假定初次读取，文件不存在时完整创建，创建失败时弹出警告提示框，
+		; 如果用户选择继续执行，程序将使用默认值运行，但未创建配置。
+		; 此处不是必须创建，因为默认值没有改变，这里主要是为了用户能够编辑。
+		if !FileExist(config_file_full_path) {
 			try {
 				Self.write_config_to_file(config_file_full_path, true)
 			} catch Error as e {
@@ -166,6 +142,27 @@ class Config {
 					"所以，程序未能生成配置文件。"
 					, A_ThisFunc
 				)
+			}
+		}
+		; 配置文件已经存在，尝试读取——
+		; 若读取成功，程序还将执行一次写入来格式化，写入失败时不做任何提示；
+		; 若读取失败，程序弹出警告提示框，如果用户选择继续执行，程序将使用默认值，
+		; 此处还尝试写入一次，这是为了补充缺失的配置部分，写入失败时不做任何提示。
+		; 备注：所以其实不管怎么样都执行一次静默写入，写在 finally 里了。
+		else {
+			try {
+				Self.read_config_from_file(config_file_full_path)
+			} catch Error as e {
+				dui.warning_dialog(
+					"未能打开或读取配置文件 “" config_file_full_path "”，因为 “" e.Message "”`n"
+					"`n"
+					"所以，程序将使用默认配置。"
+					, A_ThisFunc
+				)
+			} finally {
+				try {
+					Self.write_config_to_file(config_file_full_path)
+				}
 			}
 		}
 	} ; func initialize
