@@ -28,20 +28,27 @@ class Hotkeys {
 		for active_title in ACTIVE_TITLE_LIST {
 			HotIfWinActive(active_title)
 
-			macro_rk_1 := Self.macro.RepeatKeystrokeSingle()
-			hotkey_rk_1_enable_state := cfg.data.交互重复.启用状态.data == true ? "On" : "Off"
-			Hotkey(cfg.data.交互重复.映射按键.data, macro_rk_1, hotkey_rk_1_enable_state)
+			; 因容许为空所以需要预先判断。
+			if cfg.data.交互重复.映射按键.data != "" and cfg.data.交互重复.触发按键.data != "" {
+				macro_rks := Self.macro.RepeatKeystrokeSingle(cfg.data.交互重复.触发按键.data, cfg.data.交互重复.映射按键.data)
+				hotkey_rks_enable_state := cfg.data.交互重复.启用状态.data == true ? "On" : "Off"
+				Hotkey(cfg.data.交互重复.映射按键.data, macro_rks, hotkey_rks_enable_state)
+			}
 
+			; 列表自动支持空情形。
 			for key_list in cfg.data.按键重复.按键列表.data {
-				macro_rk_2 := Self.macro.RepeatKeystrokeMultiple(1000 / 6.2)
-				hotkey_rk_2_enable_state := cfg.data.按键重复.启用状态.data == true ? "On" : "Off"
+				macro_rkm := Self.macro.RepeatKeystrokeMultiple(1000 / 6.2)
+				hotkey_rkm_enable_state := cfg.data.按键重复.启用状态.data == true ? "On" : "Off"
 				for key_name in key_list {
-					Hotkey(key_name, macro_rk_2, hotkey_rk_2_enable_state)
+					Hotkey(key_name, macro_rkm, hotkey_rkm_enable_state)
 				}
 			}
 
-			macro_dktss_1 := Self.macro.DoubleKeystrokeToSwitchSuspendState(cfg.data.杂项设置.全局按键.data)
-			Hotkey("~" cfg.data.杂项设置.全局按键.data, macro_dktss_1, "S") ; 穿透且豁免。
+			; 因容许为空所以需要预先判断。
+			if cfg.data.杂项设置.全局按键.data != "" {
+				macro_dktss := Self.macro.DoubleKeystrokeToSwitchSuspendState(cfg.data.杂项设置.全局按键.data)
+				Hotkey("~" cfg.data.杂项设置.全局按键.data, macro_dktss, "S On") ; 穿透且豁免。
+			}
 		}
 		HotIfWinActive()
 	} ; func create
@@ -67,25 +74,18 @@ class Hotkeys {
 
 	; 用于热键的宏。
 	class macro {
-		; 
-		; https://gemini.google.com/app/ee6ba2e285ca6eaa - 12
-		; https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-systemparametersinfow
-		class RepeatKeystrokeSingle {
-			; 
-			Call(key_name_from_call) {
-
-			}
-		} ; class RepeatKeystrokeSingle
-
-
-
-		; 重复触发已按下按键的宏逻辑。
-		; 此类为多个按键设计，不同按键之间不会争强，若要同时触发请创建新的实例。
-		; 实现参考：https://bitbucket.org/paclora_epo/3oostumps/src/fb6b63869c04e6e1ccdf038bf947447eee4e966c/%E6%BA%90%E7%A0%81/3ooStumps/.PARTIAL/MacroLogic.ahk#lines-192 。
-		class RepeatKeystrokeMultiple {
+		; 所有宏的基类。
+		; **注意：此类仅作继承用途。**
+		class MacroBase {
 			; 内部检查器的重复间隔。
 			tick_interval := Round(1000 / 40)
+		} ; class MacroBase
 
+
+
+		; 重复击键宏的基类。
+		; **注意：此类仅作继承用途。**
+		class RepeatKeystrokeBase extends Hotkeys.macro.MacroBase {
 			; 按键重复的间隔。
 			; 标示每次触发按键后再次触发时所要间隔的时间，单位是毫秒，无法小于 50（内部检查器间隔的 2 倍）。
 			repeat_interval := 1000 / 6
@@ -108,6 +108,194 @@ class Hotkeys {
 
 
 
+			; `press_key_call`的绑定函数对象，绑定到此类的实例。
+			; 有关绑定函数，请见：https://wyagd001.github.io/v2/docs/misc/Functor.htm#BoundFunc 。
+			press_key := ObjBindMethod(this, "press_key_call")
+
+			; 触发和预定按键，作为`press_key`的源。
+			press_key_call() {
+				dui.error_dialog("未被覆盖。", A_ThisFunc, "内部错误")
+			} ; func press_key_call
+
+
+
+			; `monitor_key_Call`的绑定函数对象，绑定到此类的实例。
+			; 有关绑定函数，请见：https://wyagd001.github.io/v2/docs/misc/Functor.htm#BoundFunc 。
+			monitor_key := ObjBindMethod(this, "monitor_key_Call") ; 间接绑定.
+
+			; 监控和清除预定，作为`monitor_key`的源。
+			monitor_key_call() {
+				dui.error_dialog("未被覆盖。", A_ThisFunc, "内部错误")
+			} ; func monitor_key_call
+
+
+
+			; 获取下一次触发按键的间隔。
+			; - 返回值：参照`repeat_interval`和`floating_multiplier`计算而出的随机数。
+			get_the_next_press_interval() {
+				; 浮动总值的一半，此处 / 2 是因后续随机需要平分此值才能保持基准。
+				float := (this.repeat_interval * this.floating_multiplier) / 2
+
+				return Round(Random(this.repeat_interval-float, this.repeat_interval+float))
+			} ; func get_the_next_press_interval
+
+
+
+			; 获取下一次释放按键的间隔（也就是释放当前按键的间隔）。
+			; - `remaining`：可供按键释放的剩余时间（即计算后的距离下次击键的时间）；
+			; - 返回值：参照`remaining`和`floating_multiplier`计算而出的随机数。
+			get_the_next_release_interval(remaining) {
+				; 剩余区间的二分之一处为释放时机的基准点。
+				base := remaining / 2
+				; 维持原浮动幅度，此处 / 2 是因后续随机需要平分此值才能保持基准。
+				; 由于类内变量浮动倍率始终不超过 0.5，此处绝对不会产生重叠。
+				float := (remaining * this.floating_multiplier) / 2
+
+				return Round(Random(base-float, base+float))
+			} ; func get_the_next_release_interval
+		} ; class RepeatKeystrokeBase
+
+
+
+		; 重复触发已按下按键的宏逻辑。
+		; 此类为单个按键设计，保持按下时触发的第一个击键有更长延迟。
+		; 实现参考：`RepeatKeystrokeMultiple`类和`DoubleKeystroke`类。
+		class RepeatKeystrokeSingle extends Hotkeys.macro.RepeatKeystrokeBase {
+			; 触发实例的按键。
+			remap_key := ""
+			; 实际模拟的按键。
+			trigger_key := ""
+
+			; 首次击键后的基准延迟。
+			; 此处默认值配合函数`press_key_call`中参数`first_delay`的默认值，其为空字符串时不作首次延迟。
+			base_delay_of_first_keystroke := ""
+
+
+
+			; 创建类。
+			; - `trigger_key`：所要触发的按键名。
+			; - `remap_key`：已绑定实例的按键名。
+			; - `repeat_interval`：按键重复的间隔，单位是毫秒，可用范围是 50 ~ 50+；
+			; - `floating_multiplier`：按键重复时的最大浮动倍率，为`repeat_interval`的直接乘积，可用范围是 0 ~ 0.5。
+			__New(trigger_key, remap_key, repeat_interval := 1000 / 6, floating_multiplier := 1 / 4) {
+				super.__New(repeat_interval, floating_multiplier)
+
+				this.trigger_key := trigger_key
+				this.remap_key := remap_key
+
+				this.base_delay_of_first_keystroke := this.calculate_base_delay_of_first_keystroke()
+			} ; func __New
+
+
+
+			; 计算首次击键后的基准延迟，参照系统设定的键盘字符重复延迟的 0.65 倍。
+			; - 返回值：按倍率返回系统返回值，失败时返回 325。
+			; 有关具体接口，请见：https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-systemparametersinfow 。
+			calculate_base_delay_of_first_keystroke() {
+				res := 1
+				DllCall("SystemParametersInfo",
+					"UInt", 0x0016, ; [in]      UINT  uiAction,
+					"UInt", 0,      ; [in]      UINT  uiParam,
+					"UInt*", &res,  ; [in, out] PVOID pvParam,
+					"UInt", 0,      ; [in]      UINT  fWinIni
+					"Int"           ;           BOOL
+				)
+
+				; 返回值为 0、1、2、3，0 为 250，3 为 1000。
+				return Round(((res + 1) * 250) * 0.65)
+			} ; func calculate_base_delay_of_first_keystroke
+
+
+
+			; 缓存标志，标示是否应当阻止按键传入。
+			key_block := false
+
+			; 缓存标志，记录了首个传入的按键名。
+			first_key := ""
+
+
+
+			; 外部按键传入——
+			; 函数会根据实例创建时的按键名来过滤来自系统的自动重复击键；
+			; 如果有不同于初次触发的按键传入，函数会立即显示错误消息提示框；
+			; 函数通过计时器来重复触发击键，并通过计算浮动间隔来使得击键不那么整齐。
+			; 每次按键按下的第一次击键都拥有更长延迟，以防止意外重复击键；
+			; 按键每次抬起时，所有计时器都立刻停止，函数不再活动。
+			Call(key_name_from_call) {
+				; 此处阻止标记随绑定按键的按下而生效并随释放而取消，
+				; 也就是说，只要绑定按键正被按下就不接受任何按键，这是为了避免接受来自系统的自动重复击键。
+				if this.key_block == true {
+					return
+				}
+
+				; 若传入的按键与初次按键不同，要检查是否是第一次传入，如果不是则弹出错误提示，这是为了避免宏被绑定到多个按键上。
+				if key_name_from_call != this.first_key {
+					if this.first_key == "" {
+						this.first_key := key_name_from_call
+					} else {
+						dui.error_dialog("该宏不能传入多个按键。", A_ThisFunc, "内部错误")
+					}
+				}
+
+				; 执行到此处，说明按键无误，开启阻塞标记并订阅一个计时器，
+				; 这个计时器将持续检测绑定按键的按下状态，抬起时将关闭阻塞并停止所有计时器。
+				this.key_block := true
+				SetTimer(this.monitor_key, this.tick_interval)
+
+				; 立即触发击键，其中订阅了下次击键。这样设计是因为必须立刻响应新的击键，而不是等待下一次订阅再触发击键。
+				; 此处传入值可使其拥有特殊延迟，行为类似 Windows 默认的自动重复击键，但延迟更短。
+				this.press_key_call(this.get_the_first_press_delay())
+			} ; func Call
+
+
+
+			; 立即按下`trigger_key`，订阅一次抬起当前按键的计时器并同时订阅重复触发此函数的计时器。
+			; 此处击键和抬起的时机包含一定程度的浮动，将使得击键序列不那么整齐。
+			press_key_call(first_delay := "") {
+				Send("{" this.trigger_key " Down}")
+
+				next_press_interval := first_delay != "" ? first_delay : this.get_the_next_press_interval()
+				next_release_interval := this.get_the_next_release_interval(next_press_interval)
+			;	ToolTip(Format("Pt {:03}`nRt {:03}", next_press_interval, next_release_interval))
+
+				; 订阅一次释放，不做任任何管理。
+				; 这是考虑到不同按键之间有重叠比较正常，而因主动触发较快导致的重叠也不应该忽略抬起。
+				SetTimer((*) => Send("{" this.trigger_key " Up}"), - next_release_interval)
+
+				; 订阅下一次击键。此处可以不用负数，因为此订阅受持续计时器管理。
+				SetTimer(this.press_key, - next_press_interval)
+			} ; func press_key_call
+
+
+
+			; 持续检测`remap_key`的按下状态，按键抬起时停止所有计时器并关闭`key_block`。
+			monitor_key_call() {
+				if GetKeyState(this.remap_key, "P") == false {
+					SetTimer(this.press_key, 0)
+					SetTimer(this.monitor_key, 0)
+
+					this.key_block := false
+				}
+			} ; func monitor_key_call
+
+
+
+			; 获取第一次触发按键后的延迟。
+			; - 返回值：参照`base_delay_of_first_keystroke`和`floating_multiplier`计算而出的随机数。
+			get_the_first_press_delay() {
+				; 浮动总值的一半，此处 / 2 是因后续随机需要平分此值才能保持基准。
+				float := (this.base_delay_of_first_keystroke * this.floating_multiplier) / 2
+
+				return Round(Random(this.base_delay_of_first_keystroke-float, this.base_delay_of_first_keystroke+float))
+			} ; func get_the_first_press_delay
+		} ; class RepeatKeystrokeSingle
+
+
+
+		; 重复触发已按下按键的宏逻辑。
+		; 此类为多个按键设计，不同按键之间不会争强，若要同时触发请创建新的实例。
+		; 实现参考：https://bitbucket.org/paclora_epo/3oostumps/src/fb6b63869c04e6e1ccdf038bf947447eee4e966c/%E6%BA%90%E7%A0%81/3ooStumps/.PARTIAL/MacroLogic.ahk#lines-192 。
+		class RepeatKeystrokeMultiple extends Hotkeys.macro.RepeatKeystrokeBase {
 			; 缓存标志，记录上一个使用的按键名。
 			previous_key := ""
 			; 缓存标志，记录当前正使用的按键名。
@@ -154,11 +342,6 @@ class Hotkeys {
 
 
 
-			; `press_key_call`的绑定函数对象，绑定到此类的实例。
-			; 有关绑定函数，请见：https://wyagd001.github.io/v2/docs/misc/Functor.htm#BoundFunc 。
-			press_key := ObjBindMethod(this, "press_key_call")
-
-			; 触发和预定按键，作为`press_key`的源。
 			; 立即按下`current_key`，订阅一次抬起当前按键的计时器并同时订阅重复触发此函数的计时器。
 			; 此处击键和抬起的时机包含一定程度的浮动，将使得击键序列不那么整齐。
 			; 注意：此抬起的按键在内部被缓存，因此不受`current_key`变化的影响。
@@ -172,7 +355,8 @@ class Hotkeys {
 				next_release_interval := this.get_the_next_release_interval(next_press_interval)
 			;	ToolTip(Format("Pt {:03}`nRt {:03}", next_press_interval, next_release_interval))
 
-				; 订阅一次释放，不做任任何管理。不同按键直接的释放重叠是极为正常的。
+				; 订阅一次释放，不做任任何管理。
+				; 这是考虑到不同按键之间有重叠比较正常，而因主动触发较快导致的重叠也不应该忽略抬起。
 				SetTimer((*) => Send("{" current_key " Up}"), - next_release_interval)
 
 				; 订阅下一次击键。此处可以不用负数，因为此订阅受持续计时器管理。
@@ -181,11 +365,6 @@ class Hotkeys {
 
 
 
-			; `monitor_key_Call`的绑定函数对象，绑定到此类的实例。
-			; 有关绑定函数，请见：https://wyagd001.github.io/v2/docs/misc/Functor.htm#BoundFunc 。
-			monitor_key := ObjBindMethod(this, "monitor_key_Call") ; 间接绑定.
-
-			; 监控和清除预定，作为`monitor_key`的源。
 			; 持续检测`current_key`的按下状态，按键抬起时停止所有计时器并置空`current_key`。
 			; 注意：`current_key`随时可能改变，因此计时器始终检测最后传入的按键；置空`current_key`是为了其能在下次传入新按键时自然流动给`previous_key`。
 			monitor_key_call() {
@@ -196,32 +375,6 @@ class Hotkeys {
 					this.current_key := ""
 				}
 			} ; func monitor_key_call
-
-
-
-			; 获取下一次触发按键的间隔。
-			; - 返回值：参照`repeat_interval`和`floating_multiplier`计算而出的随机数。
-			get_the_next_press_interval() {
-				; 浮动总值的一半，此处 / 2 是因后续随机需要平分此值才能保持基准。
-				float := (this.repeat_interval * this.floating_multiplier) / 2
-
-				return Round(Random(this.repeat_interval-float, this.repeat_interval+float))
-			} ; func get_the_next_press_interval
-
-
-
-			; 获取下一次释放按键的间隔（也就是释放当前按键的间隔）。
-			; - `remaining`：可供按键释放的剩余时间（即计算后的距离下次击键的时间）；
-			; - 返回值：参照`remaining`和`floating_multiplier`计算而出的随机数。
-			get_the_next_release_interval(remaining) {
-				; 剩余区间的二分之一处为释放时机的基准点。
-				base := remaining / 2
-				; 维持原浮动幅度，此处 / 2 是因后续随机需要平分此值才能保持基准。
-				; 由于类内变量浮动倍率始终不超过 0.5，此处绝对不会产生重叠。
-				float := (remaining * this.floating_multiplier) / 2
-
-				return Round(Random(base-float, base+float))
-			} ; func get_the_next_release_interval
 		} ; class RepeatKeystrokeMultiple
 
 
@@ -230,10 +383,7 @@ class Hotkeys {
 		; 此类被设计为不影响按键的原有功能，因此必须绑定腭化按键，除非不需要按键的原有功能。
 		; 注意：不能将此类的实例绑定给多个按键。
 		; 有关腭化按键，请见：https://wyagd001.github.io/v2/docs/Hotkeys.htm#Tilde 。
-		class DoubleKeystroke {
-			; 内部检查器的重复间隔。
-			tick_interval := Round(1000 / 40)
-
+		class DoubleKeystroke extends Hotkeys.macro.MacroBase {
 			; 宏所绑定的按键名。
 			bound_key_name := ""
 
@@ -258,7 +408,7 @@ class Hotkeys {
 			; 有关具体接口，请见：https://learn.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-getdoubleclicktime 。
 			calculate_trigger_range_from_system_double_click_time(default_value) {
 				call_res := DllCall("GetDoubleClickTime", "Int")
-				return (call_res == 0 ? default_value : call_res) * 1.15
+				return Round((call_res == 0 ? default_value : call_res) * 1.15)
 			} ; func calculate_trigger_range_from_system_double_click_time
 
 
@@ -352,7 +502,7 @@ class Hotkeys {
 
 
 		; 在一定时间内连续击键两次便可挂起所有热键（也就是调用了`tra.cal.全局功能启用状态`），同时还将根据具体状态播放一声短促的声音。
-		; 此类必须绑定腭化按键，详见`hks.macro.DoubleKeystroke`的说明。
+		; 此类建议绑定腭化按键，详见`hks.macro.DoubleKeystroke`的说明。
 		class DoubleKeystrokeToSwitchSuspendState extends Hotkeys.macro.DoubleKeystroke {
 			; 重新实现的宏逻辑，将调用`tra.cal.全局功能启用状态`，如果触发结果为启用则发出 G6 哔声，为挂起则发出 G5 哔声。
 			; 注意：此函数在系统层面是阻塞的，因此可能会影响连续击键的流程度，比如在连续四次击键时可能无法连续响应两次逻辑，而需要在听到声音时停止一些时间。
