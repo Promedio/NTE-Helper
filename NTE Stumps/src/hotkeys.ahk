@@ -167,8 +167,8 @@ class Hotkeys {
 			trigger_key := ""
 
 			; 首次击键后的基准延迟。
-			; 此处默认值配合函数`press_key_call`中参数`first_delay`的默认值，其为空字符串时不作首次延迟。
-			base_delay_of_first_keystroke := ""
+			; 此处默认值为系统常见的默认设置。
+			base_delay_of_first_keystroke := 500
 
 
 
@@ -243,20 +243,20 @@ class Hotkeys {
 				SetTimer(this.monitor_key, this.tick_interval)
 
 				; 立即触发击键，其中订阅了下次击键。这样设计是因为必须立刻响应新的击键，而不是等待下一次订阅再触发击键。
-				; 此处传入值可使其拥有特殊延迟，行为类似 Windows 默认的自动重复击键，但延迟更短。
-				this.press_key_call(this.get_the_first_press_delay())
+				; 此处传入指示可使其拥有特殊延迟，行为类似 Windows 默认的自动重复击键，但延迟更短。
+				this.press_key_call(true)
 			} ; func Call
 
 
 
 			; 立即按下`trigger_key`，订阅一次抬起当前按键的计时器并同时订阅重复触发此函数的计时器。
 			; 此处击键和抬起的时机包含一定程度的浮动，将使得击键序列不那么整齐。
-			press_key_call(first_delay := "") {
+			; - `is_first_keystroke`：指示函数是否为第一次击键（也就是物理按下的那次击键）。
+			press_key_call(is_first_keystroke := false) {
 				Send("{" this.trigger_key " Down}")
 
-				next_press_interval := first_delay != "" ? first_delay : this.get_the_next_press_interval()
+				next_press_interval := this.get_the_next_press_interval()
 				next_release_interval := this.get_the_next_release_interval(next_press_interval)
-			;	ToolTip(Format("Pt {:03}`nRt {:03}", next_press_interval, next_release_interval))
 
 				; 订阅一次释放，不做任任何管理。
 				; 这是考虑到不同按键之间有重叠比较正常，而因主动触发较快导致的重叠也不应该忽略抬起。
@@ -265,11 +265,19 @@ class Hotkeys {
 				; 按需订阅一次滚轮，不做任任何管理。
 				; 滚轮不会在第一次击键之后附加，这是为了保持首次击键的纯粹。
 				; 目前此行为还不够仿真，因为没有人会在高速击键期间每次都精准地滚一次轮。
-				if cfg.data.交互重复.附加滚轮.data == true and first_delay == "" {
+				if cfg.data.交互重复.附加滚轮.data == true and is_first_keystroke == false {
 					; `get_the_next_release_interval`函数刚好可以计算出类似的间隔。嗯，屎山 +1 了。
 					next_scroll_interval := this.get_the_next_release_interval(next_press_interval)
 					SetTimer((*) => Send("{WheelDown}"), - next_scroll_interval)
 				;	ToolTip(Format("Pt {:03}`nRt {:03}`nSt {:03}", next_press_interval, next_release_interval, next_scroll_interval))
+				}
+
+				; 如果为第一次击键，使其拥有特殊延迟。
+				; 延迟到此处重新计算是为了让上方的两个一次性订阅能够与后续击键的延迟保持在同一基准上，
+				; 尽管这样似乎不够拟真了，但更符合最初的设计。
+				if is_first_keystroke == true {
+					next_press_interval := this.get_the_first_press_delay()
+				;	ToolTip(Format("Pt {:03}`nRt {:03}", next_press_interval, next_release_interval))
 				}
 
 				; 订阅下一次击键。此处可以不用负数，因为此订阅受持续计时器管理。
