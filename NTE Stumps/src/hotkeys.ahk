@@ -220,7 +220,7 @@ class Hotkeys {
 			; 如果有不同于初次触发的按键传入，函数会立即显示错误消息提示框；
 			; 函数通过计时器来重复触发击键，并通过计算浮动间隔来使得击键不那么整齐。
 			; 每次按键按下的第一次击键都拥有更长延迟，以防止意外重复击键；
-			; 按键每次抬起时，所有计时器都立刻停止，函数不再活动。
+			; 按键每次抬起时，持续计时器也随即停止，函数不再活动。
 			Call(key_name_from_call) {
 				; 此处阻止标记随绑定按键的按下而生效并随释放而取消，
 				; 也就是说，只要绑定按键正被按下就不接受任何按键，这是为了避免接受来自系统的自动重复击键。
@@ -237,24 +237,36 @@ class Hotkeys {
 					}
 				}
 
-				; 执行到此处，说明按键无误，开启阻塞标记并订阅一个计时器，
-				; 这个计时器将持续检测绑定按键的按下状态，抬起时将关闭阻塞并停止所有计时器。
+				; 执行到此处说明按键无误，开启阻塞标记。
 				this.key_block := true
+
+				; 开始订阅或重新订阅计时器（这是一个高速率计时器）。
+				; 绑定按键一旦抬起，此计时器将关闭阻塞并停止自身。
 				SetTimer(this.monitor_key, this.tick_interval)
 
-				; 立即触发击键，其中订阅了下次击键。这样设计是因为必须立刻响应新的击键，而不是等待下一次订阅再触发击键。
+				; 停止击键计时器订阅，然后立即触发并订阅下次击键。这是为了立刻响应新的击键而不是等到下一次订阅再触发。
 				; 此处传入指示可使其拥有特殊延迟，行为类似 Windows 默认的自动重复击键，但延迟更短。
 				this.press_key_call(true)
 			} ; func Call
 
 
 
-			; 立即按下`trigger_key`，订阅一次抬起当前按键的计时器并同时订阅重复触发此函数的计时器。
+			; 立即停止当前订阅，如果`remap_key`正被按下，发送按下`trigger_key`并依次订阅抬起当前按键和重复触发此函数的计时器。
 			; 此处击键和抬起的时机包含一定程度的浮动，将使得击键序列不那么整齐。
 			; - `is_first_keystroke`：指示函数是否为第一次击键（也就是物理按下的那次击键）。
 			press_key_call(is_first_keystroke := false) {
+				; 立即停止自身击键订阅，为保证按键订阅不会意外地自我循环。
+				SetTimer(this.press_key, 0)
+
+				; 立即检查按键状态。这是为了确保发送的时刻必然有按键按下（持续计时器可能不可靠）。
+				if GetKeyState(this.remap_key, "P") == false {
+					return
+				}
+
+				; 立即发送按键。
 				Send("{" this.trigger_key " Down}")
 
+				; 计算下一次击键和本次释放的间隔。
 				next_press_interval := this.get_the_next_press_interval()
 				next_release_interval := this.get_the_next_release_interval(next_press_interval)
 
@@ -280,16 +292,15 @@ class Hotkeys {
 				;	ToolTip(Format("Pt {:03}`nRt {:03}", next_press_interval, next_release_interval))
 				}
 
-				; 订阅下一次击键。此处可以不用负数，因为此订阅受持续计时器管理。
+				; 订阅下一次击键。此处可以不用负数，因为此订阅受自身管理而无法重复运行。
 				SetTimer(this.press_key, - next_press_interval)
 			} ; func press_key_call
 
 
 
-			; 持续检测`remap_key`的按下状态，按键抬起时停止所有计时器并关闭`key_block`。
+			; 持续检测`remap_key`的按下状态，按键抬起时停止自身订阅关闭`key_block`。
 			monitor_key_call() {
 				if GetKeyState(this.remap_key, "P") == false {
-					SetTimer(this.press_key, 0)
 					SetTimer(this.monitor_key, 0)
 
 					this.key_block := false
@@ -311,83 +322,87 @@ class Hotkeys {
 
 
 		; 重复触发已按下按键的宏逻辑。
-		; 此类为多个按键设计，不同按键之间不会争强，若要同时触发请创建新的实例。
+		; 此类为多个按键设计，不同按键之间不会争抢，若要同时触发请创建新的实例。
 		; 实现参考：https://bitbucket.org/paclora_epo/3oostumps/src/fb6b63869c04e6e1ccdf038bf947447eee4e966c/%E6%BA%90%E7%A0%81/3ooStumps/.PARTIAL/MacroLogic.ahk#lines-192 。
 		class RepeatKeystrokeMultiple extends Hotkeys.macro.RepeatKeystrokeBase {
-			; 缓存标志，记录上一个使用的按键名。
-			previous_key := ""
 			; 缓存标志，记录当前正使用的按键名。
 			current_key := ""
 
 
 
 			; 外部按键传入——
-			; 函数会记录至多两个传入的历史按键，并根据此识别和过滤掉来自系统的自动重复击键；
+			; 函数会记录当前传入的按键，并据此识别和过滤掉来自系统的自动重复击键；
 			; 函数通过计时器来重复触发击键，并通过计算浮动间隔来使得击键不那么整齐。
-			; 新按键传入时，函数将立刻停止旧的击键计划并立即响应新击键；
-			; 当最后一个触发函数的按键抬起，所有计时器都立刻停止，函数不再活动。
+			; 新按键传入时，函数将立刻停止旧的击键计划并立即响应新的击键；
+			; 当最后一个触发函数的按键抬起，持续计时器随即停止，函数不再活动。
 			; 有关计时调用，详见：https://wyagd001.github.io/v2/docs/lib/SetTimer.htm 。
 			Call(key_name_from_call) {
 				; 此类被设计为供多个按键绑定，因此需要注意每次调用都会启动一个当前函数的模拟线程。
-				; 按键传入，可能是第一次触发，也可能是因持续按下而导致的自动连续击键（游戏中一般不会这样），还可能是绑定的其它按键以及其后续可能的连续击键。
-				; 该宏通过两个简单的类内变量来区分和处理真实击键，并用一个快速计时器来控制所有订阅。
-				; 此宏逻辑设计于2022年末，并于2023年二季度完成改进，此处为旧函数的复刻。
-
-				; 此两变量为简易队列，每次调用都立即储存传入的按键。
-				this.previous_key := this.current_key
-				; 由于传入的按键随时可能变化，而宏整体又有异步时间性过程，此处立即共享到类内变量供该函数的所有线程使用。
-				this.current_key := key_name_from_call
+				; 按键传入，可能是第一次触发，也可能是因持续按下而导致的自动连续击键（游戏中一般不会这样），还可能是绑定的其它按键以及其后续可能的自动连续击键。
+				; 该宏通过一个简单的类内变量来指示当前实际使用的按键，并用一个快速计时器来控制是否应当过滤当前按键，而具体的击键的订阅是由其内部自动管理的。
 
 				; 如果两值相等，必定是来自系统的自动重复击键，拒绝执行后续逻辑。
-				; 这里之所以能如此判断，是因为函数开头先备份了当前按键到先前按键，而后续逻辑中，在当前按键释放时，
-				; 当前按键的变量内容会被重置，又因为函数第一行先执行备份，空值自然流动至先前按键，故当前按键永远不可能为空。
-				if this.current_key == this.previous_key {
+				; 这里之所以能如此判断，是因为当前按键默认为空，与传入按键不同时会立刻赋值，因此除非是传入了新按键，否则一定是来自系统的自动重复击键。
+				; 一旦当前按键被物理抬起，当前按键的值会被置空，届时任何传入的按键都不会被判定为一致（也就意味着是物理击键），至此开始新一轮的赋值逻辑。
+				if this.current_key == key_name_from_call {
 					return
 				}
 
-				; 开始订阅或重新订阅计时器（以每秒 40 次的速率）。
-				; 此计时器会持续检测当前按键的按下状态，由于当前按键可能变化，故始终检查的是最后一个触发此函数的按键，
-				; 当前按键一旦抬起，此计时器将停止所有订阅（也就是自身和按键重复的计时器），并置空当前按键，
-				; 由于函数第一行先执行备份，空值自然流动至先前按键，故此处检测的永远是新传入而顶替为当前按键的有效按键。
-				SetTimer(this.monitor_key, 1000 / 40)
+				; 由于传入的按键随时可能变化，而宏整体又有异步时间性过程，此处立即共享到类内变量供该函数的所有线程使用。
+				; 注意：此时当前按键被上方逻辑过滤。
+				this.current_key := key_name_from_call
 
-				; 停止正在执行的计时器订阅。
-				; 由于新按键会在当前按键还未释放时顶替为当前按键（也就是队列更迭了），所以必须停止旧的击键订阅。
-				SetTimer(this.press_key, 0)
-				; 接着立即触发击键，其中订阅了下次击键。这样设计是因为必须立刻响应新的击键，而不是等待下一次订阅再触发击键。
+				; 开始订阅或重新订阅计时器（这是一个高速率计时器）。
+				; 此计时器会持续检测当前按键的按下状态，由于当前按键可能变化，故始终检查的是最后一个触发此函数的按键，
+				; 当前按键一旦抬起，此计时器将停止自身并置空当前按键。
+				; 由于上方的赋值，此处检测的永远是新传入而顶替为当前按键的有效按键。
+				SetTimer(this.monitor_key, this.tick_interval)
+
+				; 停止击键计时器订阅，然后立即触发并订阅下次击键。这是为了立刻响应新的击键而不是等到下一次订阅再触发。
+				; 由于新按键会在当前按键还未释放时顶替为当前按键，所以必须停止旧的击键订阅。
 				this.press_key_call()
 			} ; func Call
 
 
 
-			; 立即按下`current_key`，订阅一次抬起当前按键的计时器并同时订阅重复触发此函数的计时器。
+			; 立即停止当前订阅，如果`current_key`正被按下，发送按下`current_key`并依次订阅抬起当前按键和重复触发此函数的计时器。
 			; 此处击键和抬起的时机包含一定程度的浮动，将使得击键序列不那么整齐。
 			; 注意：此抬起的按键在内部被缓存，因此不受`current_key`变化的影响。
 			press_key_call() {
-				Send("{" this.current_key " Down}")
+				; 立即停止自身击键订阅，为保证按键订阅不会意外地自我循环。
+				SetTimer(this.press_key, 0)
 
-				; 立刻缓存已发送的按键供释放使用。
+				; 立刻缓存按键，因为后续可能存在有延迟的发送。
 				current_key := this.current_key
 
+				; 立即检查按键状态，如果当前按键为空则说明按键已由持续计时器判定为释放，
+				; 否则立即检查一次按键状态，这是为了确保发送的时刻必然有按键按下（持续计时器可能不可靠）。
+				if this.current_key == "" or GetKeyState(this.current_key, "P") == false {
+					return
+				}
+
+				; 立即发送按键。
+				Send("{" current_key " Down}")
+
+				; 计算下一次击键和本次释放的间隔。
 				next_press_interval := this.get_the_next_press_interval()
 				next_release_interval := this.get_the_next_release_interval(next_press_interval)
 			;	ToolTip(Format("Pt {:03}`nRt {:03}", next_press_interval, next_release_interval))
 
 				; 订阅一次释放，不做任任何管理。
-				; 这是考虑到不同按键之间有重叠比较正常，而因主动触发较快导致的重叠也不应该忽略抬起。
+				; 这是考虑到不同按键之间有重叠比较正常，并且因主动触发较快而导致的重叠也不应忽略抬起。
 				SetTimer((*) => Send("{" current_key " Up}"), - next_release_interval)
 
-				; 订阅下一次击键。此处可以不用负数，因为此订阅受持续计时器管理。
+				; 订阅下一次击键。此处可以不用负数，因为此订阅受自身管理而无法重复运行。
 				SetTimer(this.press_key, - next_press_interval)
 			} ; func press_key_call
 
 
 
-			; 持续检测`current_key`的按下状态，按键抬起时停止所有计时器并置空`current_key`。
-			; 注意：`current_key`随时可能改变，因此计时器始终检测最后传入的按键；置空`current_key`是为了其能在下次传入新按键时自然流动给`previous_key`。
+			; 持续检测`current_key`的按下状态，按键抬起时停止自身订阅并置空`current_key`。
+			; 注意：`current_key`随时可能改变，因此计时器始终检测最后传入的按键；置空`current_key`意味着`Call`不再有阻止的按键。
 			monitor_key_call() {
 				if GetKeyState(this.current_key, "P") == false {
-					SetTimer(this.press_key, 0)
 					SetTimer(this.monitor_key, 0)
 
 					this.current_key := ""
