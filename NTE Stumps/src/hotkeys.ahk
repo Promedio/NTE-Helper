@@ -258,6 +258,11 @@ class Hotkeys {
 				; 立即停止自身击键订阅，为保证按键订阅不会意外地自我循环。
 				SetTimer(this.press_key, 0)
 
+				; 挂起时不应触发。这是为了避免在某些情况下延续到游戏外。
+				if A_IsSuspended == true {
+					return
+				}
+
 				; 立即检查按键状态。这是为了确保发送的时刻必然有按键按下（持续计时器可能不可靠）。
 				if GetKeyState(this.remap_key, "P") == false {
 					return
@@ -371,6 +376,11 @@ class Hotkeys {
 			press_key_call() {
 				; 立即停止自身击键订阅，为保证按键订阅不会意外地自我循环。
 				SetTimer(this.press_key, 0)
+
+				; 挂起时不应触发。这是为了避免在某些情况下延续到游戏外。
+				if A_IsSuspended == true {
+					return
+				}
 
 				; 立刻缓存按键，因为后续可能存在有延迟的发送。
 				current_key := this.current_key
