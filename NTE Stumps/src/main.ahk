@@ -17,6 +17,8 @@ Thread("Interrupt", 0)            ; 允许线程立即中断。
 
 #MaxThreads 24      ; 限制最大模拟线程，理论上是为了通过触发阻塞来发现问题。
 SendMode("Input")   ; 设置发送模式为 Input。
+InstallKeybdHook    ; 安装键盘钩子，为准确获取按键的物理状态。
+InstallMouseHook    ; 安装鼠标钩子，因为也可能绑定鼠标热键。
 A_MenuMaskKey := "" ; 防止遮盖控制键。
 
 
