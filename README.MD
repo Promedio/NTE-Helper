@@ -1,4 +1,4 @@
-﻿## NTE Stumps `AutoHotkeyV2` `Autohotkey v2.0.25`
+﻿## NTE Stumps `AutoHotkeyV2` `Autohotkey v2.0.26`
 
 功能概述：可简化重复击键。
 
