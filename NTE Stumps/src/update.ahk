@@ -93,15 +93,33 @@ class Update {
 
 
 	; 获取自身项目在本地的版本号。
-	; - 返回值：字符串形式的版本号，仅保留前三节，请求或解析失败时返回空字符串。
+	; - 返回值：字符串形式的版本号，仅保留前三节，获取或解析失败时返回空字符串。
 	; 有关文件版本，详见：https://wyagd001.github.io/v2/docs/lib/FileGetVersion.htm 。
 	static get_local_version() {
 		finres := ""
 
-		try {
-			version_res := FileGetVersion(A_ScriptFullPath)
-			; 丢弃最后一个句点及之后的内容。
-			finres := SubStr(version_res, 1, InStr(version_res, ".", , -1) - 1)
+		if A_IsCompiled == 1 {
+			try {
+				version_res := FileGetVersion(A_ScriptFullPath)
+				; 丢弃最后一个句点及之后的内容。
+				finres := SubStr(version_res, 1, InStr(version_res, ".", , -1) - 1)
+			}
+		} else {
+			try {
+				loop read A_ScriptFullPath {
+					; 逐行寻找版本号设置命令。
+					find_res := InStr(A_LoopReadLine, ";@Ahk2Exe-SetFileVersion", "On")
+					if find_res == 0 {
+						continue
+					}
+					; 找到后跳过命令本身的长度，并去掉所有空格。
+					loop parse SubStr(A_LoopReadLine, find_res + 24) {
+						if A_LoopField != " " {
+							finres .= A_LoopField
+						}
+					}
+				}
+			}
 		}
 
 		return finres

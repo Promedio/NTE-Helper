@@ -150,10 +150,10 @@ class Tray {
 
 
 	; 根据自身版本号构建托盘提示。
-	; 自身不具有版本号时（比如处于脚本执行状态）将显示`(开发中的版本)`。
+	; 自身不具有版本号时则不显示版本号，若处于脚本执行状态，还额外显示`(开发中的版本)`。
 	static construct_tray_icon_tip() {
 		local_ver_res := upc.get_local_version()
-		A_IconTip := "NTE Stumps" . (local_ver_res != "" ? (" v" local_ver_res) : (" (开发中的版本)"))
+		A_IconTip := "NTE Stumps" . (local_ver_res != "" ? (" v" local_ver_res) : "") . (A_IsCompiled != 1 ? (" (开发中的版本)") : "")
 	} ; func construct_tray_icon_tip
 
 
