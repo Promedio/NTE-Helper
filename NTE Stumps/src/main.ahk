@@ -125,9 +125,9 @@ tests() {
 ;@Ahk2Exe-UpdateManifest 1 ; UAC.
 
 ;@Ahk2Exe-SetDescription    NTE Stumps
-;@Ahk2Exe-SetFileVersion    1.1.5
+;@Ahk2Exe-SetFileVersion    1.1.6
 ;@Ahk2Exe-SetProductName    NTE Stumps
-;@Ahk2Exe-SetProductVersion 1.1.5
+;@Ahk2Exe-SetProductVersion 1.1.6
 ;@Ahk2Exe-SetCompanyName    Paclora Corporation
 ;@Ahk2Exe-SetCopyright      Apache-2.0 © 2026 Paclora Corporation.
 ;@Ahk2Exe-SetLanguage       0x0804 ; Chinese_PRC.
