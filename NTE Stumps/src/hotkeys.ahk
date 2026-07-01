@@ -30,24 +30,38 @@ class Hotkeys {
 
 			; 因容许为空所以需要预先判断。
 			if cfg.data.交互重复.映射按键.data != "" and cfg.data.交互重复.触发按键.data != "" {
-				macro_rks := Self.macro.RepeatKeystrokeSingle(cfg.data.交互重复.触发按键.data, cfg.data.交互重复.映射按键.data)
+				macro_rks := Self.macro.RepeatKeystrokeSingle(active_title, cfg.data.交互重复.触发按键.data, cfg.data.交互重复.映射按键.data)
+
 				hotkey_rks_enable_state := cfg.data.交互重复.启用状态.data == true ? "On" : "Off"
+
 				Hotkey(cfg.data.交互重复.映射按键.data, macro_rks, hotkey_rks_enable_state)
+
+				macro_rks_call_up := ObjBindMethod(macro_rks, "CallUp")
+				Hotkey(cfg.data.交互重复.映射按键.data " Up", macro_rks_call_up, hotkey_rks_enable_state)
 			}
 
 			; 列表自动支持空情形。
 			for key_list in cfg.data.按键重复.按键列表.data {
-				macro_rkm := Self.macro.RepeatKeystrokeMultiple(1000 / 6.2)
+				macro_rkm := Self.macro.RepeatKeystrokeMultiple(active_title, 1000 / 6.2)
+
 				hotkey_rkm_enable_state := cfg.data.按键重复.启用状态.data == true ? "On" : "Off"
+
 				for key_name in key_list {
 					Hotkey(key_name, macro_rkm, hotkey_rkm_enable_state)
+
+					macro_rkm_call_up := ObjBindMethod(macro_rkm, "CallUp", key_name)
+					Hotkey(key_name " Up", macro_rkm_call_up, hotkey_rkm_enable_state)
 				}
 			}
 
 			; 因容许为空所以需要预先判断。
 			if cfg.data.杂项设置.全局按键.data != "" {
 				macro_dktss := Self.macro.DoubleKeystrokeToSwitchSuspendState(cfg.data.杂项设置.全局按键.data)
+
 				Hotkey("~" cfg.data.杂项设置.全局按键.data, macro_dktss, "S On") ; 穿透且豁免。
+
+				macro_dktss_call_up := ObjBindMethod(macro_dktss, "CallUp")
+				Hotkey("~" cfg.data.杂项设置.全局按键.data " Up", macro_dktss_call_up, "S On") ; 穿透且豁免。
 			}
 		}
 		HotIfWinActive()
@@ -74,18 +88,14 @@ class Hotkeys {
 
 	; 用于热键的宏。
 	class macro {
-		; 所有宏的基类。
-		; **注意：此类仅作继承用途。**
-		class MacroBase {
-			; 内部检查器的重复间隔。
-			tick_interval := Round(1000 / 40)
-		} ; class MacroBase
-
-
-
 		; 重复击键宏的基类。
 		; **注意：此类仅作继承用途。**
-		class RepeatKeystrokeBase extends Hotkeys.macro.MacroBase {
+		class RepeatKeystrokeBase {
+			; 当前绑定热键所在变体的活动标题。
+			active_title := ""
+
+
+
 			; 按键重复的间隔。
 			; 标示每次触发按键后再次触发时所要间隔的时间，单位是毫秒，无法小于 50（内部检查器间隔的 2 倍）。
 			repeat_interval := 1000 / 6
@@ -97,11 +107,13 @@ class Hotkeys {
 
 
 			; 创建类。
+			; - `active_title`：要绑定的热键变体所指定的活动标题；
 			; - `repeat_interval`：按键重复的间隔，单位是毫秒，可用范围是 50 ~ 50+；
 			; - `floating_multiplier`：按键重复时的最大浮动倍率，为`repeat_interval`的直接乘积，可用范围是 0 ~ 0.5。
-			__New(repeat_interval := 1000 / 6, floating_multiplier := 1 / 4) {
-				tick_interval_multiple := this.tick_interval * 2
-				this.repeat_interval := repeat_interval < tick_interval_multiple ? tick_interval_multiple : Round(repeat_interval)
+			__New(active_title, repeat_interval := 1000 / 6, floating_multiplier := 1 / 4) {
+				this.active_title := active_title
+
+				this.repeat_interval := Round(repeat_interval)
 
 				this.floating_multiplier := floating_multiplier > 0.5 ? 0.5 : floating_multiplier < 0 ? 0 : floating_multiplier
 			} ; func __New
@@ -110,23 +122,12 @@ class Hotkeys {
 
 			; `press_key_call`的绑定函数对象，绑定到此类的实例。
 			; 有关绑定函数，请见：https://wyagd001.github.io/v2/docs/misc/Functor.htm#BoundFunc 。
-			press_key := ObjBindMethod(this, "press_key_call")
+			press_key_bind := ObjBindMethod(this, "press_key")
 
 			; 触发和预定按键，作为`press_key`的源。
-			press_key_call() {
+			press_key() {
 				dui.error_dialog("未被覆盖。", A_ThisFunc, "内部错误")
-			} ; func press_key_call
-
-
-
-			; `monitor_key_Call`的绑定函数对象，绑定到此类的实例。
-			; 有关绑定函数，请见：https://wyagd001.github.io/v2/docs/misc/Functor.htm#BoundFunc 。
-			monitor_key := ObjBindMethod(this, "monitor_key_Call") ; 间接绑定.
-
-			; 监控和清除预定，作为`monitor_key`的源。
-			monitor_key_call() {
-				dui.error_dialog("未被覆盖。", A_ThisFunc, "内部错误")
-			} ; func monitor_key_call
+			} ; func press_key
 
 
 
@@ -173,12 +174,13 @@ class Hotkeys {
 
 
 			; 创建类。
+			; - `active_title`：要绑定的热键变体所指定的活动标题；
 			; - `trigger_key`：所要触发的按键名。
-			; - `remap_key`：已绑定实例的按键名。
+			; - `remap_key`：触发实例的无状态按键名。
 			; - `repeat_interval`：按键重复的间隔，单位是毫秒，可用范围是 50 ~ 50+；
 			; - `floating_multiplier`：按键重复时的最大浮动倍率，为`repeat_interval`的直接乘积，可用范围是 0 ~ 0.5。
-			__New(trigger_key, remap_key, repeat_interval := 1000 / 6, floating_multiplier := 1 / 4) {
-				super.__New(repeat_interval, floating_multiplier)
+			__New(active_title, trigger_key, remap_key, repeat_interval := 1000 / 6, floating_multiplier := 1 / 4) {
+				super.__New(active_title, repeat_interval, floating_multiplier)
 
 				this.trigger_key := trigger_key
 				this.remap_key := remap_key
@@ -221,6 +223,8 @@ class Hotkeys {
 			; 函数通过计时器来重复触发击键，并通过计算浮动间隔来使得击键不那么整齐。
 			; 每次按键按下的第一次击键都拥有更长延迟，以防止意外重复击键；
 			; 按键每次抬起时，持续计时器也随即停止，函数不再活动。
+			; - `key_name_from_call`：自然传入的按键名。
+			; 有关计时调用，详见：https://wyagd001.github.io/v2/docs/lib/SetTimer.htm 。
 			Call(key_name_from_call) {
 				; 此处阻止标记随绑定按键的按下而生效并随释放而取消，
 				; 也就是说，只要绑定按键正被按下就不接受任何按键，这是为了避免接受来自系统的自动重复击键。
@@ -240,31 +244,27 @@ class Hotkeys {
 				; 执行到此处说明按键无误，开启阻塞标记。
 				this.key_block := true
 
-				; 开始订阅或重新订阅计时器（这是一个高速率计时器）。
-				; 绑定按键一旦抬起，此计时器将关闭阻塞并停止自身。
-				SetTimer(this.monitor_key, this.tick_interval)
-
-				; 停止击键计时器订阅，然后立即触发并订阅下次击键。这是为了立刻响应新的击键而不是等到下一次订阅再触发。
+				; 判断击键条件并视情况立即触发并订阅下次击键。这是为了立刻响应新的击键而不是等到下一次订阅再触发。
 				; 此处传入指示可使其拥有特殊延迟，行为类似 Windows 默认的自动重复击键，但延迟更短。
-				this.press_key_call(true)
+				this.press_key(true)
 			} ; func Call
 
 
 
-			; 立即停止当前订阅，如果`remap_key`正被按下，发送按下`trigger_key`并依次订阅抬起当前按键和重复触发此函数的计时器。
+			; 立即停止当前订阅，如果`remap_key`正被按下，发送按下`trigger_key`并订阅抬起其的计时器。
 			; 此处击键和抬起的时机包含一定程度的浮动，将使得击键序列不那么整齐。
 			; - `is_first_keystroke`：指示函数是否为第一次击键（也就是物理按下的那次击键）。
-			press_key_call(is_first_keystroke := false) {
-				; 立即停止自身击键订阅，为保证按键订阅不会意外地自我循环。
-				SetTimer(this.press_key, 0)
+			press_key(is_first_keystroke := false) {
+				; 立即停止留存的订阅，防止旧按键订阅被如期触发。
+				SetTimer(this.press_key_bind, 0)
 
-				; 挂起时不应触发。这是为了避免在某些情况下延续到游戏外。
-				if A_IsSuspended == true {
-					return
-				}
-
-				; 立即检查按键状态。这是为了确保发送的时刻必然有按键按下（持续计时器可能不可靠）。
-				if GetKeyState(this.remap_key, "P") == false {
+				; 挂起时不应触发，这是为了避免在重复期间触发的挂起被忽视；
+				; 未处于当前热键变体的窗口时不应触发，这是为了避免在重复期间的切换窗口仍持续重复。
+				; 以上两种情况由于缺失了后续热键的触发条件，一旦放行则没有机会触发停止。
+				; 此外，GetKeyState 为最后的保障，尽管可能不够可靠。
+				; 有关窗口活动，详见：https://wyagd001.github.io/v2/docs/lib/WinActive.htm 。
+				if A_IsSuspended == 1 or WinActive(this.active_title) == 0 or GetKeyState(this.remap_key, "P") == 0 {
+					this.reset_status()
 					return
 				}
 
@@ -297,20 +297,25 @@ class Hotkeys {
 				;	ToolTip(Format("Pt {:03}`nRt {:03}", next_press_interval, next_release_interval))
 				}
 
-				; 订阅下一次击键。此处可以不用负数，因为此订阅受自身管理而无法重复运行。
-				SetTimer(this.press_key, - next_press_interval)
-			} ; func press_key_call
+				; 订阅下一次击键，只运行一次。这是为了避免意外的无限重复触发。
+				SetTimer(this.press_key_bind, - next_press_interval)
+			} ; func press_key
 
 
 
-			; 持续检测`remap_key`的按下状态，按键抬起时停止自身订阅关闭`key_block`。
-			monitor_key_call() {
-				if GetKeyState(this.remap_key, "P") == false {
-					SetTimer(this.monitor_key, 0)
+			; 外部按键传入——
+			; 告知宏实例相关的按键已经放开并需要重置宏的状态。如果传入的按键确实为当前按键，立即重置宏的状态。
+			CallUp(*) {
+				this.reset_status()
+			} ; func CallUp
 
-					this.key_block := false
-				}
-			} ; func monitor_key_call
+
+
+			; 将宏实例重置到相当于没有任何按键按下时的状态，但不包含需要在多次之间记住的独立标记。
+			; 每次试图重置宏状态时都应该调用此函数。
+			reset_status() {
+				this.key_block := false
+			} ; func reset_status
 
 
 
@@ -328,6 +333,7 @@ class Hotkeys {
 
 		; 重复触发已按下按键的宏逻辑。
 		; 此类为多个按键设计，不同按键之间不会争抢，若要同时触发请创建新的实例。
+		; 注意：此宏的实例必须额外绑定`CallUp`方法。
 		; 实现参考：https://bitbucket.org/paclora_epo/3oostumps/src/fb6b63869c04e6e1ccdf038bf947447eee4e966c/%E6%BA%90%E7%A0%81/3ooStumps/.PARTIAL/MacroLogic.ahk#lines-192 。
 		class RepeatKeystrokeMultiple extends Hotkeys.macro.RepeatKeystrokeBase {
 			; 缓存标志，记录当前正使用的按键名。
@@ -340,11 +346,12 @@ class Hotkeys {
 			; 函数通过计时器来重复触发击键，并通过计算浮动间隔来使得击键不那么整齐。
 			; 新按键传入时，函数将立刻停止旧的击键计划并立即响应新的击键；
 			; 当最后一个触发函数的按键抬起，持续计时器随即停止，函数不再活动。
+			; - `key_name_from_call`：自然传入的按键名。
 			; 有关计时调用，详见：https://wyagd001.github.io/v2/docs/lib/SetTimer.htm 。
 			Call(key_name_from_call) {
 				; 此类被设计为供多个按键绑定，因此需要注意每次调用都会启动一个当前函数的模拟线程。
 				; 按键传入，可能是第一次触发，也可能是因持续按下而导致的自动连续击键（游戏中一般不会这样），还可能是绑定的其它按键以及其后续可能的自动连续击键。
-				; 该宏通过一个简单的类内变量来指示当前实际使用的按键，并用一个快速计时器来控制是否应当过滤当前按键，而具体的击键的订阅是由其内部自动管理的。
+				; 该宏通过一个简单的类内变量来指示当前实际使用的按键和控制是否应当过滤当前按键，而具体的击键的订阅是由其内部自动管理的。
 
 				; 如果两值相等，必定是来自系统的自动重复击键，拒绝执行后续逻辑。
 				; 这里之所以能如此判断，是因为当前按键默认为空，与传入按键不同时会立刻赋值，因此除非是传入了新按键，否则一定是来自系统的自动重复击键。
@@ -354,42 +361,35 @@ class Hotkeys {
 				}
 
 				; 由于传入的按键随时可能变化，而宏整体又有异步时间性过程，此处立即共享到类内变量供该函数的所有线程使用。
-				; 注意：此时当前按键被上方逻辑过滤。
+				; 注意：此赋值意味着当前按键正被上方逻辑过滤。
 				this.current_key := key_name_from_call
 
-				; 开始订阅或重新订阅计时器（这是一个高速率计时器）。
-				; 此计时器会持续检测当前按键的按下状态，由于当前按键可能变化，故始终检查的是最后一个触发此函数的按键，
-				; 当前按键一旦抬起，此计时器将停止自身并置空当前按键。
-				; 由于上方的赋值，此处检测的永远是新传入而顶替为当前按键的有效按键。
-				SetTimer(this.monitor_key, this.tick_interval)
-
-				; 停止击键计时器订阅，然后立即触发并订阅下次击键。这是为了立刻响应新的击键而不是等到下一次订阅再触发。
+				; 判断击键条件并视情况立即触发并订阅下次击键。这是为了立刻响应新的击键而不是等到下一次订阅再触发。
 				; 由于新按键会在当前按键还未释放时顶替为当前按键，所以必须停止旧的击键订阅。
-				this.press_key_call()
+				this.press_key()
 			} ; func Call
 
 
 
-			; 立即停止当前订阅，如果`current_key`正被按下，发送按下`current_key`并依次订阅抬起当前按键和重复触发此函数的计时器。
+			; 立即停止当前订阅，如果`current_key`正被按下，发送按下`current_key`并订阅抬起其的计时器。
 			; 此处击键和抬起的时机包含一定程度的浮动，将使得击键序列不那么整齐。
 			; 注意：此抬起的按键在内部被缓存，因此不受`current_key`变化的影响。
-			press_key_call() {
-				; 立即停止自身击键订阅，为保证按键订阅不会意外地自我循环。
-				SetTimer(this.press_key, 0)
+			press_key() {
+				; 立即停止留存的订阅，防止被顶替的旧按键订阅被如期触发。
+				SetTimer(this.press_key_bind, 0)
 
-				; 挂起时不应触发。这是为了避免在某些情况下延续到游戏外。
-				if A_IsSuspended == true {
+				; 挂起时不应触发，这是为了避免在重复期间触发的挂起被忽视；
+				; 未处于当前热键变体的窗口时不应触发，这是为了避免在重复期间的切换窗口仍持续重复。
+				; 以上两种情况由于缺失了后续热键的触发条件，一旦放行则没有机会触发停止。
+				; 此外，GetKeyState 为最后的保障，尽管可能不够可靠。`current_key`为空时说明实例已被重置，此时无法判断按键状态。
+				; 有关窗口活动，详见：https://wyagd001.github.io/v2/docs/lib/WinActive.htm 。
+				if A_IsSuspended == 1 or WinActive(this.active_title) == 0 or this.current_key == "" or GetKeyState(this.current_key, "P") == 0 {
+					this.reset_status()
 					return
 				}
 
 				; 立刻缓存按键，因为后续可能存在有延迟的发送。
 				current_key := this.current_key
-
-				; 立即检查按键状态，如果当前按键为空则说明按键已由持续计时器判定为释放，
-				; 否则立即检查一次按键状态，这是为了确保发送的时刻必然有按键按下（持续计时器可能不可靠）。
-				if this.current_key == "" or GetKeyState(this.current_key, "P") == false {
-					return
-				}
 
 				; 立即发送按键。
 				Send("{" current_key " Down}")
@@ -403,30 +403,38 @@ class Hotkeys {
 				; 这是考虑到不同按键之间有重叠比较正常，并且因主动触发较快而导致的重叠也不应忽略抬起。
 				SetTimer((*) => Send("{" current_key " Up}"), - next_release_interval)
 
-				; 订阅下一次击键。此处可以不用负数，因为此订阅受自身管理而无法重复运行。
-				SetTimer(this.press_key, - next_press_interval)
-			} ; func press_key_call
+				; 订阅下一次击键，只运行一次。这是为了避免意外的无限重复触发。
+				SetTimer(this.press_key_bind, - next_press_interval)
+			} ; func press_key
 
 
 
-			; 持续检测`current_key`的按下状态，按键抬起时停止自身订阅并置空`current_key`。
-			; 注意：`current_key`随时可能改变，因此计时器始终检测最后传入的按键；置空`current_key`意味着`Call`不再有阻止的按键。
-			monitor_key_call() {
-				if GetKeyState(this.current_key, "P") == false {
-					SetTimer(this.monitor_key, 0)
-
-					this.current_key := ""
+			; 外部按键传入——
+			; 告知宏实例相关的按键已经放开并需要重置宏的状态。如果传入的按键确实为当前按键，立即重置宏的状态。
+			; 注意：此函数不接受自然按键传入。
+			; - `key_name_from_bind_call`：触发此调用的无状态按键名。
+			CallUp(key_name_from_bind_call, *) {
+				if key_name_from_bind_call == this.current_key {
+					this.reset_status()
 				}
-			} ; func monitor_key_call
+			} ; func CallUp
+
+
+
+			; 将宏实例重置到相当于没有任何按键按下时的状态，但不包含需要在多次之间记住的独立标记。
+			; 每次试图重置宏状态时都应该调用此函数。
+			reset_status() {
+				this.current_key := ""
+			} ; func reset_status
 		} ; class RepeatKeystrokeMultiple
 
 
 
 		; 在一定时间内连续击键两次便可触发宏逻辑。
 		; 此类被设计为不影响按键的原有功能，因此必须绑定腭化按键，除非不需要按键的原有功能。
-		; 注意：不能将此类的实例绑定给多个按键。
+		; 注意：不能将此类的实例绑定给多个按键；此宏的实例必须额外绑定`CallUp`方法。
 		; 有关腭化按键，请见：https://wyagd001.github.io/v2/docs/Hotkeys.htm#Tilde 。
-		class DoubleKeystroke extends Hotkeys.macro.MacroBase {
+		class DoubleKeystroke {
 			; 宏所绑定的按键名。
 			bound_key_name := ""
 
@@ -437,7 +445,7 @@ class Hotkeys {
 
 
 			; 创建类。
-			; - `key_name`：所要检测的按键名。
+			; - `key_name`：触发实例的无状态按键名。
 			__New(key_name) {
 				this.bound_key_name := key_name
 				this.trigger_range := this.calculate_trigger_range_from_system_double_click_time(this.trigger_range)
@@ -487,23 +495,21 @@ class Hotkeys {
 					}
 				}
 
-				; 执行到此处，说明按键无误，开启阻塞标记并订阅一个计时器，
-				; 这个计时器将持续检测绑定按键的按下状态，抬起时将关闭阻塞并停止自身。
+				; 执行到此处，说明按键无误，开启阻塞标记。
 				this.key_block := true
-				SetTimer(this.monitor_key, this.tick_interval)
 
 				; 此处判断双击状态——
 				if this.key_flag == false {
 					; 如果尚未进行第一次击键，标记一次并定时清除一次；
 					this.key_flag := true
-					SetTimer(this.clear_flag, - this.trigger_range)
+					SetTimer(this.clear_flag_bind, - this.trigger_range)
 				} else {
-					; 否则，这里应当处于容许范围内（也就是还处于上方计时器执行之前），
-					; 立即停止计时器并清除按键标记（也就是将倒计时提前到此刻，重置了击键状态，否则可能会把下次击键视为第二次），
+					; 否则，这里应当处于容许范围内（也就是上方计时器还未清除标记），
+					; 立即停止计时器并清除按键标记（也就是将倒计时提前到此刻触发，否则可能会把下次击键视为第二次），
 					; 然后执行宏逻辑。
-					SetTimer(this.clear_flag, 0)
-					this.key_flag := false
-					; 不过这里还有一些矛盾：这里的宏逻辑如果是耗时函数的话，会不会有问题？
+					SetTimer(this.clear_flag_bind, 0)
+					this.clear_flag()
+					; 如果此处的行为较为耗时，会出现相应时间的无响应情况。
 					this.macro_logic()
 				}
 			} ; func Call
@@ -517,29 +523,29 @@ class Hotkeys {
 
 
 
-			; `monitor_key_call`的绑定函数对象，绑定到此类的实例。
-			; 有关绑定函数，请见：https://wyagd001.github.io/v2/docs/misc/Functor.htm#BoundFunc 。
-			monitor_key := ObjBindMethod(this, "monitor_key_call")
-
-			; 清除缓存标志`key_block`并停止预定，作为`monitor_key`的源。
-			monitor_key_call() {
-				if GetKeyState(this.bound_key_name, "P") == false {
-					SetTimer(this.monitor_key, 0)
-
-					this.key_block := false
-				}
-			} ; func monitor_key_call
-
-
-
-			; `clear_flag_call`的绑定函数对象，绑定到此类的实例。
-			; 有关绑定函数，请见：https://wyagd001.github.io/v2/docs/misc/Functor.htm#BoundFunc 。
-			clear_flag := ObjBindMethod(this, "clear_flag_call")
+			; `clear_flag`的绑定函数对象，绑定到此类的实例。
+			clear_flag_bind := ObjBindMethod(this, "clear_flag")
 
 			; 清除缓存标志`key_flag`，作为`clear_flag`的源。
-			clear_flag_call() {
+			clear_flag() {
 				this.key_flag := false
-			} ; func clear_flag_call
+			} ; func clear_flag
+
+
+
+			; 外部按键传入——
+			; 告知宏实例相关的按键已经放开并需要重置宏的状态。
+			CallUp(*) {
+				this.reset_status()
+			} ; func CallUp
+
+
+
+			; 将宏实例重置到相当于没有任何按键按下时的状态，但不包含需要在多次之间记住的独立标记。
+			; 每次试图重置宏状态时都应该调用此函数。
+			reset_status() {
+				this.key_block := false
+			} ; func reset_status
 		} ; class DoubleKeyPress
 
 
